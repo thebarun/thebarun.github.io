@@ -30,7 +30,9 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
 .fix{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 16px;background:rgba(242,245,247,.95);border-top:1px solid var(--hair)}
 .fix a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;border-radius:14px;text-decoration:none;font-size:15px;font-weight:800}.call{background:var(--teal);color:#fff}.kk{background:var(--paper);color:var(--ink);border:1.5px solid var(--hair)}
 .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(22,33,43,.92);color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}.toast.on{opacity:1}
-@media (prefers-reduced-motion:reduce){.in,.bar{animation:none;opacity:1;transform:none}}</style></head><body><noscript><main><div class="msg"><b>이 브라우저에서는 열 수 없습니다</b><span>다른 브라우저로 열어 주시거나 02-2088-1264 로 연락 주시기 바랍니다.</span></div></main></noscript><main id="app" aria-live="polite"><div class="sk"><div class="bar" style="width:40%"></div><div class="bar big"></div><div class="bar" style="width:80%"></div></div></main><nav class="fix"><a class="call" href="tel:02-2088-1264">사무실 전화</a><a class="kk" href="http://pf.kakao.com/_mkRxoG/chat" target="_blank" rel="noopener">카카오톡 문의</a></nav><div id="toast" class="toast" role="status"></div><script>(function payClient_() {
+@media (prefers-reduced-motion:reduce){.in,.bar{animation:none;opacity:1;transform:none}}
+.fix.home{position:static;display:flex;justify-content:center;gap:8px;margin-top:16px;padding:0;background:none;border:0}.fix.home a{min-height:40px;padding:0 16px;border-radius:10px;font-size:14px}
+</style></head><body><noscript><main><div class="msg"><b>이 브라우저에서는 열 수 없습니다</b><span>다른 브라우저로 열어 주시거나 02-2088-1264 로 연락 주시기 바랍니다.</span></div></main></noscript><main id="app" aria-live="polite"><div class="sk"><div class="bar" style="width:40%"></div><div class="bar big"></div><div class="bar" style="width:80%"></div></div></main><nav class="fix"><a class="call" href="tel:02-2088-1264">사무실 전화</a><a class="kk" href="http://pf.kakao.com/_mkRxoG/chat" target="_blank" rel="noopener">카카오톡 문의</a></nav><div id="toast" class="toast" role="status"></div><script>(function payClient_() {
   const OFFICE = '더바른 세무회계';
   const app = document.getElementById('app');
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -92,7 +94,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
   }
   (async () => {
     const loc = { parameter: {}, hash: location.hash };
-    if (!location.hash) { document.title = OFFICE; return fail('해당 사이트는 더바른세무회계 홈페이지 입니다', '사용 관련해서 당사로 연락 주시기 바랍니다'); } // 링크 없이 주소만 열었을 때
+    if (!location.hash) { document.title = OFFICE; fail('해당 사이트는 더바른세무회계 홈페이지 입니다', '사용 관련해서 당사로 연락 주시기 바랍니다'); const nav = document.querySelector('.fix'); nav.classList.add('home'); app.querySelector('.msg').appendChild(nav); return; } // 링크 없이 주소만 열었을 때 — 버튼을 문구 아래로
     let f = String((loc.parameter && loc.parameter.pay) || ''), k = String(loc.hash || '').replace(/^#/, '');
     if (!f && /^[A-Za-z0-9]{22}$/.test(k)) {
       try { const p = await tokenParts(k); f = p.f; k = p.k; } catch (e) { return fail('이 링크로는 열 수 없습니다', '이 휴대폰 브라우저에서 열리지 않습니다. 당 사무실로 연락 주시기 바랍니다.'); }
