@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-cV+WOJhk87zKbm66s41RGCfABJm8bGsSdaMS0KYT6o8='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>더바른 세무회계 손익 보고서</title>
+<meta name="description" content="눌러서 손익 보고서를 확인하세요">
+<meta property="og:type" content="website">
+<meta property="og:title" content="더바른 세무회계 손익 보고서">
+<meta property="og:description" content="눌러서 손익 보고서를 확인하세요">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#F3F6F8;color:#15232B;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;line-height:1.5}
+main{max-width:920px;margin:0 auto;padding:16px}
+.msg{background:#fff;border-radius:16px;padding:32px 20px;margin-top:40px;text-align:center}
+.msg b{display:block;font-size:17px;margin-bottom:6px}.msg span{font-size:14px;color:#56666F}
+.foot{font-size:12px;color:#56666F;margin:14px 4px 32px}
+@media (max-width:640px){.pr table{width:100%!important;min-width:0!important;table-layout:auto!important}.pr td:first-child,.pr th:first-child{white-space:normal!important;word-break:keep-all}.pr td:not(:first-child),.pr th:not(:first-child){white-space:nowrap!important}.pr .card{overflow-x:auto;padding:16px!important}}
+</style>
+</head>
+<body>
+<main id="app"><div class="msg"><b>보고서를 불러오는 중입니다</b><span>잠시만 기다려 주세요.</span></div></main>
+<noscript><main><div class="msg"><b>이 브라우저에서는 열 수 없습니다</b><span>다른 브라우저로 열어 주세요.</span></div></main></noscript>
+<script>(async function () {
+  var API = "https://script.google.com/macros/s/AKfycbw-F_NAFmuGlX2w_IZjv-dGbzvgpzT2WoIOcKrsuRngpZ3lsU_zwqz8E8dlYHn6UCbJ/exec";
+  var B62 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  var app = document.getElementById("app");
+  function say(t, s) {
+    app.textContent = "";
+    var d = document.createElement("div"); d.className = "msg";
+    var b = document.createElement("b"); b.textContent = t; d.appendChild(b);
+    var p = document.createElement("span"); p.textContent = s; d.appendChild(p);
+    app.appendChild(d);
+  }
+  function sha(s) { return crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)).then(function (b) { return new Uint8Array(b); }); }
+  function bytes(t) { var r = atob(t.replace(/-/g, "+").replace(/_/g, "/")), u = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) u[i] = r.charCodeAt(i); return u; }
+  var t = location.hash.slice(1);
+  if (!/^[A-Za-z0-9]{22}$/.test(t)) return say("링크를 확인해 주세요", "카톡으로 받은 링크를 그대로 눌러 열어 주세요.");
+  try {
+    var n = await sha("pay-name:" + t), kb = await sha("pay-key:" + t);
+    var f = Array.from(n.slice(0, 24), function (b) { return B62[b % 62]; }).join("");
+    var res = await fetch(API, { method: "POST", credentials: "omit", body: JSON.stringify({ fn: "reportFetch", cred: "", args: [f] }) });
+    var j = await res.json();
+    if (!j.ok) throw new Error("server");
+    if (!j.data) return say("기간이 지난 링크입니다", "보관 기간이 지나 열 수 없습니다. 세무사무소에 다시 요청해 주세요.");
+    var all = bytes(j.data);
+    var key = await crypto.subtle.importKey("raw", kb, "AES-GCM", false, ["decrypt"]);
+    var plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: all.slice(0, 12) }, key, all.slice(12));
+    var d = JSON.parse(new TextDecoder().decode(plain));
+    var st = document.createElement("style"); st.textContent = d.css; document.head.appendChild(st);
+    document.title = d.name + " 손익 보고서";
+    app.innerHTML = d.html;
+    var foot = document.createElement("p"); foot.className = "foot";
+    foot.textContent = d.made + " 기준 자료입니다. 홈택스 신고자료 기준 추정치이며, 확정 금액과 다를 수 있습니다.";
+    app.appendChild(foot);
+  } catch (e) {
+    say("보고서를 열지 못했습니다", "잠시 후 다시 열어 주세요. 계속 안 되면 세무사무소에 알려 주세요.");
+  }
+})();</script>
+</body>
+</html>
