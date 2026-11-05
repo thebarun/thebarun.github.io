@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>더바른 세무회계 납부 안내</title>
+<meta name="description" content="눌러서 세액과 납부 계좌를 확인하세요">
+<meta property="og:type" content="website">
+<meta property="og:title" content="더바른 세무회계 납부 안내">
+<meta property="og:description" content="눌러서 세액과 납부 계좌를 확인하세요">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<script>
+// 납부 안내 링크를 구글 화면으로 넘겨주기만 한다. # 뒤 22자는 서버로 전송되지 않고 브라우저 안에서만 쓰인다. 자료·저장·기록 없음.
+(function () {
+  if (/^#[A-Za-z0-9]{22}$/.test(location.hash)) {
+    location.replace("https://script.google.com/macros/s/AKfycbxsJfz4-54tgA0wDr5HdXKAjE1O1RPN6lyjNRqaWrwnR8LGvRX6rKdDleIUz0NcWd3ZTw/exec" + location.hash);
+  } else {
+    document.documentElement.className = "bad";
+  }
+})();
+</script>
+<style>
+  body { margin: 0; background: #F2F5F7; color: #16212B; line-height: 1.55; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  main { max-width: 440px; margin: 0 auto; padding: 24px 16px; }
+  .box { background: #FFF; border-radius: 20px; padding: 22px 20px; box-shadow: 0 1px 2px rgba(22, 50, 68, .05), 0 6px 18px rgba(22, 50, 68, .06); }
+  b { display: block; font-size: 16px; margin-bottom: 4px; }
+  span { font-size: 14px; color: #5F6B77; }
+  a { display: block; margin-top: 16px; padding: 12px; border-radius: 14px; background: #196F8F; color: #FFF; text-align: center; text-decoration: none; font-size: 15px; font-weight: 800; }
+  .msg { display: none; }
+  .bad .msg { display: block; }
+  .go { display: block; }
+  .bad .go { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="box go"><b>납부 안내를 여는 중입니다</b><span>잠시만 기다려 주십시오.</span></div>
+  <div class="box msg"><b>이 링크로는 열 수 없습니다</b><span>받으신 링크 전체를 그대로 눌러 주십시오. 계속 열리지 않으면 당 사무실로 연락 주시기 바랍니다.</span><a href="tel:02-2088-1264">사무실 전화</a></div>
+  <noscript><div class="box"><b>이 브라우저에서는 열 수 없습니다</b><span>다른 브라우저로 열어 주시거나 02-2088-1264 로 연락 주시기 바랍니다.</span></div></noscript>
+</main>
+</body>
+</html>
