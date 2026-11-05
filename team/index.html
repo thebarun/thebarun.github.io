@@ -1644,14 +1644,40 @@ if (DEMO) initMock();
     document.body.innerHTML = '<div style="font-family:sans-serif;padding:48px 16px;text-align:center;color:#334155"><h2></h2><p></p></div>';
     document.querySelector('h2').textContent = title; document.querySelector('p').textContent = msg;
   }
-  var key = location.hash.replace(/^#/, '');
-  if (!key) return stop('개인 링크로 열어 주세요', '주소 끝에 개인 열쇠가 있는 링크로 열어야 합니다. 대표님께 받은 링크를 써 주세요.');
+  // 주소만 열면 로그인 코드를 받는다. 맞으면 이 브라우저에만 기억(주소·서버 기록에 안 남음). 그래도 화면 비밀번호는 따로 묻는다.
+  var SAVED = 'tdb.team.key';
+  function remember(v) { try { if (v) localStorage.setItem(SAVED, v); else localStorage.removeItem(SAVED); } catch (e) {} }
+  function recalled() { try { return localStorage.getItem(SAVED) || ''; } catch (e) { return ''; } }
+  function codeOf(raw) { // 로그인 코드(1a2b-3c4d-…)·개인 링크(…/team/#열쇠, 옛 …/exec?key=열쇠) 다 받음
+    var m = String(raw || '').trim().match(/(?:#|[?&]key=)([0-9a-f-]+)/i);
+    var k = (m ? m[1] : String(raw || '').trim()).replace(/[\s-]/g, '');
+    return /^[0-9a-f]{12,40}$/i.test(k) ? k : '';
+  }
+  function ask(msg) {
+    document.body.innerHTML = '<form id="f" style="font-family:sans-serif;max-width:360px;margin:0 auto;padding:48px 16px;text-align:center;color:#334155"><h2>더바른 세무회계 팀 대시보드</h2><p>로그인 코드나 개인 링크를 넣어 주세요. 한 번 열면 이 브라우저가 기억합니다.</p><input id="c" autocomplete="off" aria-label="로그인 코드" placeholder="로그인 코드" style="width:100%;box-sizing:border-box;padding:12px;font-size:16px;border:1px solid #cbd5e1;border-radius:8px"><button style="width:100%;margin-top:12px;padding:12px;font-size:16px;border:0;border-radius:8px;background:#1e40af;color:#fff">열기</button><p id="m" role="alert" style="color:#b91c1c"></p></form>';
+    document.getElementById('m').textContent = msg || '';
+    document.getElementById('f').onsubmit = function (e) {
+      e.preventDefault();
+      var k = codeOf(document.getElementById('c').value);
+      if (!k) { document.getElementById('m').textContent = '로그인 코드를 다시 확인해 주세요.'; return; }
+      remember(k); location.reload();
+    };
+    document.getElementById('c').focus();
+  }
+  var fromLink = location.hash.replace(/^#/, '');
+  var key = fromLink || recalled();
+  if (!key) return ask('');
   post('bootInfo', key, []).then(function (b) {
+    remember(key);
     document.getElementById('boot').textContent = JSON.stringify(b);
     if (b.title) document.title = b.title;
     var m = document.getElementById('main-src'), s = document.createElement('script');
     s.textContent = m.textContent; m.remove(); document.body.appendChild(s);
-  }).catch(function (e) { stop('열 수 없습니다', (e && e.message) || '잠시 후 다시 열어 주세요.'); });
+  }).catch(function (e) {
+    var msg = (e && e.message) || '';
+    if (!fromLink && /링크가 바뀌었거나/.test(msg)) { remember(''); return ask('코드가 맞지 않거나 바뀌었습니다. 대표님께 새 코드를 받아 주세요.'); } // 기억한 코드만 지움 — 연결 실패로는 안 지움
+    stop('열 수 없습니다', msg || '잠시 후 다시 열어 주세요.');
+  });
 })();
 </script>
 </body>
