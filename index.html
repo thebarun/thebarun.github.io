@@ -92,6 +92,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
   }
   (async () => {
     const loc = { parameter: {}, hash: location.hash };
+    if (!location.hash) { document.title = OFFICE; return fail('해당 사이트는 더바른세무회계 홈페이지 입니다', '사용 관련해서 당사로 연락 주시기 바랍니다'); } // 링크 없이 주소만 열었을 때
     let f = String((loc.parameter && loc.parameter.pay) || ''), k = String(loc.hash || '').replace(/^#/, '');
     if (!f && /^[A-Za-z0-9]{22}$/.test(k)) {
       try { const p = await tokenParts(k); f = p.f; k = p.k; } catch (e) { return fail('이 링크로는 열 수 없습니다', '이 휴대폰 브라우저에서 열리지 않습니다. 당 사무실로 연락 주시기 바랍니다.'); }
