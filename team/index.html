@@ -280,6 +280,8 @@ body.has-alert .wrap{padding-bottom:150px}
 .member{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .member .nm{flex:1;min-width:110px;font-weight:700;display:flex;align-items:center;gap:8px}
 .member .acts{display:flex;gap:6px;flex-wrap:wrap}
+.md-acts{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 16px;padding-top:12px;border-top:1px solid var(--border)}
+.md-acts:empty{display:none}
 .member .ttl{font-size:12.5px;font-weight:600;color:var(--muted)}
 .tag.off{background:var(--border);color:var(--muted)}
 .al-table{text-align:left}.al-table th,.al-table td{text-align:left}.al-table th:last-child,.al-table td.r{text-align:right}
@@ -531,8 +533,10 @@ body.has-alert .wrap{padding-bottom:150px}
     <div class="field" id="mdNameF"><label for="mdName">이름</label><input id="mdName" class="input" maxlength="20"></div>
     <p class="hint" id="mdNameHint">이름을 바꿔도 로그인 코드는 그대로이고, 업무 지시·메모 작성자도 새 이름으로 옮겨집니다. 세무대시보드의 거래처 담당 지정은 PC 세무대시보드 팀원 관리에서 바꿔야 함께 옮겨집니다.</p>
     <div class="field"><label for="mdTitle">직급</label><select id="mdTitle" class="select"></select></div>
+    <div class="field" id="mdRoleF"><label for="mdRole">역할</label><select id="mdRole" class="select"><option value="team">팀원</option><option value="manager">관리자</option></select></div>
     <div class="field" id="mdMailF"><label for="mdMail">구글 계정</label><input id="mdMail" class="input" type="email" placeholder="구글 메일 주소" maxlength="254" autocomplete="off"></div>
     <p class="hint" id="mdMailHint">웹판(dash.thebaruntax.kr)에 이 구글 계정으로 로그인하면 로그인 코드 없이 이 사람으로 연결됩니다. 비우면 연결을 풉니다.</p>
+    <div class="md-acts" id="mdActs"></div>
     <div class="dlg-foot">
       <span class="sp"></span>
       <button type="button" class="btn" data-close>취소</button>
@@ -1358,14 +1362,8 @@ function renderMembers(){
     '<span class="nm">' + av(m.name) + esc(m.name) + (m.title ? ' <span class="ttl">' + esc(m.title) + '</span>' : '') + ' ' + roleTag(admin ? 'admin' : m.role) + (me ? ' <span class="tag">나</span>' : '') +
       ' <span class="tag' + (m.email ? '' : ' off') + '" title="' + esc(m.email || '웹판 자동 로그인에 쓸 구글 계정이 아직 없습니다') + '">' + (m.email ? '구글 연결' : '구글 미연결') + '</span></span>' +
     '<span class="acts">' +
-      (locked ? '' : '<button class="btn sm" data-act="edit" data-name="' + esc(m.name) + '">수정</button>') +
-      (owner && !admin ? '<select class="select" data-role="' + esc(m.name) + '" aria-label="' + esc(m.name) + ' 역할" style="height:34px;font-size:13px">' +
-        '<option value="team"' + (m.role === 'team' ? ' selected' : '') + '>팀원</option><option value="manager"' + (m.role === 'manager' ? ' selected' : '') + '>관리자</option></select>' : '') +
-      (admin && !m.link ? '' :
-        (navigator.share && !admin ? '<button class="btn sm primary" data-act="share" data-name="' + esc(m.name) + '">' + icon('ext') + '보내기</button>' : '') +
-        '<button class="btn sm' + (navigator.share || admin ? '' : ' primary') + '" data-act="copy" data-name="' + esc(m.name) + '">' + (admin ? '내 링크 복사' : '초대 링크 복사') + '</button>') +
-      (admin || locked ? '' : '<button class="btn sm ghost" data-act="reset" data-name="' + esc(m.name) + '" title="예전 링크를 막고 새 링크 발급">새 링크</button>' +
-        '<button class="btn sm ghost icon" data-act="del" data-name="' + esc(m.name) + '" aria-label="' + esc(m.name) + ' 삭제">' + icon('trash') + '</button>') +
+      (locked ? '' : '<button class="btn sm" data-act="edit" data-name="' + esc(m.name) + '">수정</button>') + // 역할·보내기·새 링크·삭제는 수정 창 안(2026-11-06)
+      (admin && !m.link ? '' : '<button class="btn sm primary" data-act="copy" data-name="' + esc(m.name) + '">' + (admin ? '내 링크 복사' : '초대 링크 복사') + '</button>') +
     '</span></li>';
   };
   $('#memCount').textContent = M.members.length + ' / ' + M.max + '명';
@@ -1373,23 +1371,20 @@ function renderMembers(){
   $('#memAdd').hidden = M.members.length >= M.max;
   renderAccess();
 }
-$('#memberList').addEventListener('change', e => {
-  const sel = e.target.closest('[data-role]'); if (!sel) return;
-  const name = sel.dataset.role, role = sel.value;
-  if (!confirm(name + '님을 ' + (role === 'manager' ? '관리자로 지정' : '팀원으로 변경') + '할까요?\n관리자는 모든 업무 지시를 보고 팀원을 추가·삭제할 수 있습니다.')) { renderMembers(); return; }
-  run(call('setRole', name, role), r => { M = r; renderMembers(); toast('역할을 바꿨습니다'); });
-});
 async function loadMembers(){
   loadAccess();
   try { M = await call('getMembers'); renderMembers(); } catch (e) { fail(e); }
 }
 const membersChanged = r => { M = r; renderMembers(); load(true); };
-$('#memberList').addEventListener('click', async e => {
+const memOf = name => name === M.admin.name ? M.admin : M.members.find(x => x.name === name);
+$('#memberList').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
-  const name = b.dataset.name;
-  const m = name === M.admin.name ? M.admin : M.members.find(x => x.name === name); if (!m) return;
-  const act = b.dataset.act;
-  if (act === 'edit') { openMemEdit(m, m === M.admin); return; }
+  const m = memOf(b.dataset.name); if (!m) return;
+  if (b.dataset.act === 'edit') openMemEdit(m, m === M.admin); else memAct(b.dataset.act, m);
+});
+// 줄의 [링크 복사]와 수정 창의 [보내기]·[새 링크]·[삭제]가 같이 씀. 바뀌었으면 true
+async function memAct(act, m){
+  const name = m.name;
   if (act === 'share') {
     try { await navigator.share({ title: BOOT.title, text: inviteText(m) }); }
     catch (err) { if (err && err.name === 'AbortError') return; if (await copyText(inviteText(m))) toast('보내기가 안 돼서 초대 메시지를 복사했습니다'); }
@@ -1398,11 +1393,13 @@ $('#memberList').addEventListener('click', async e => {
   } else if (act === 'reset') {
     if (!confirm(name + '님의 지금 링크를 막고 새 링크를 만들까요?\n새 링크를 다시 보내줘야 합니다.')) return;
     run(call('resetMemberLink', name), r => { membersChanged(r); toast('새 링크를 만들었습니다. 다시 보내 주세요'); });
+    return true;
   } else if (act === 'del') {
     if (!confirm(name + '님을 삭제할까요?\n링크가 바로 막힙니다. 이미 지시한 업무는 지워지지 않고 대표님께만 보입니다.')) return;
     run(call('removeMember', name), r => { membersChanged(r); toast('삭제했습니다'); });
+    return true;
   }
-});
+}
 $('#memAdd').addEventListener('submit', e => {
   e.preventDefault();
   const name = $('#memName').value.trim(); if (!name) return;
@@ -1418,6 +1415,10 @@ function openMemEdit(m, admin){
   $('#mdNameF').hidden = $('#mdNameHint').hidden = admin; $('#mdName').value = m.name;
   $('#mdTitle').innerHTML = Array.from(new Set(['', ...TITLE_LIST, m.title || ''])).map(x => '<option value="' + esc(x) + '"' + (x === (m.title || '') ? ' selected' : '') + '>' + esc(x || '직급 선택') + '</option>').join('');
   $('#mdMailF').hidden = $('#mdMailHint').hidden = !mailOk; $('#mdMail').value = m.email || '';
+  $('#mdRoleF').hidden = admin || M.myRole !== 'admin'; $('#mdRole').value = m.role === 'manager' ? 'manager' : 'team'; // 역할 지정은 대표만(예전 줄 칸과 같음)
+  $('#mdActs').innerHTML = admin ? '' : (navigator.share && m.link ? '<button type="button" class="btn sm" data-mact="share">' + icon('ext') + '보내기</button>' : '') +
+    '<button type="button" class="btn sm" data-mact="reset" title="예전 링크를 막고 새 링크 발급">새 링크</button>' +
+    '<button type="button" class="btn sm danger" data-mact="del">' + icon('trash') + '삭제</button>';
   $('#mdSave').disabled = false;
   $('#memDlg').showModal();
 }
@@ -1429,6 +1430,11 @@ $('#memForm').addEventListener('submit', async e => {
   if (!nn) { toast('이름을 입력하세요'); return; }
   const steps = []; // 직급·계정을 옛 이름으로 먼저, 이름 변경은 맨 끝
   if (title !== (m.title || '')) steps.push(['setTitle', m.name, title]);
+  const role = $('#mdRole').value;
+  if (!$('#mdRoleF').hidden && role !== (m.role === 'manager' ? 'manager' : 'team')) {
+    if (!confirm(m.name + '님을 ' + (role === 'manager' ? '관리자로 지정' : '팀원으로 변경') + '할까요?\n관리자는 모든 업무 지시를 보고 팀원을 추가·삭제할 수 있습니다.')) return;
+    steps.push(['setRole', m.name, role]);
+  }
   if (mailOk && mail !== (m.email || '')) steps.push(['setMemberEmail', m.name, mail]);
   if (nn !== m.name) {
     if (!confirm(m.name + ' → ' + nn + ' 으로 이름을 바꿀까요?\n로그인 코드는 그대로입니다. 세무대시보드의 거래처 담당 지정은 PC 팀원 관리에서 바꿔야 함께 옮겨집니다.')) return;
@@ -1443,6 +1449,10 @@ $('#memForm').addEventListener('submit', async e => {
   membersChanged(r);
   toast(nn !== m.name ? m.name + ' → ' + nn + ' 으로 바꿨습니다' : '저장했습니다');
   if (nn !== m.name && m.name === M.me) setTimeout(() => location.reload(), 900); // 내 이름을 바꿨으면 화면의 내 이름도 새로
+});
+$('#mdActs').addEventListener('click', async e => {
+  const b = e.target.closest('[data-mact]'); if (!b || !memEdit) return;
+  if (await memAct(b.dataset.mact, memEdit.m)) $('#memDlg').close(); // 새 링크·삭제는 창을 닫고 목록에서 결과를 봄
 });
 // ───── 접속 기록(대표·관리자, PC 팀원 관리 '접속 기록' 카드와 같은 내용) ─────
 let AL = null, alWho = '';
