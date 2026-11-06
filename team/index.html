@@ -224,6 +224,21 @@ body.has-alert .wrap{padding-bottom:150px}
 .login-card .btn{width:100%;height:48px;margin-top:12px;font-size:16px}
 .login-err{min-height:20px;margin-top:10px;color:var(--danger);font-size:13px;font-weight:600}
 /* 업무 / 휴가 / 멤버 관리(멤버 관리는 대표·관리자만) */
+.cal-head{display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.cal-head h2{font-size:17px;font-weight:800;margin:0 auto 0 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.cal-grid .wd{font-size:12px;font-weight:700;color:var(--muted);text-align:center;padding:2px 0 4px}
+.cal-grid button{min-height:50px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;font:inherit;color:var(--text);cursor:pointer}
+.cal-grid button.today{background:var(--primary-soft)}
+.cal-grid button.sel{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+.cal-grid .dn{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.cal-grid .sun,.cal-grid .sun .dn{color:var(--danger)}
+.cal-grid .wd.sat,.cal-grid .sat .dn{color:#2563EB}
+.cal-grid .dots{display:flex;gap:3px;align-items:center}
+.cal-grid .dots i{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+.cal-grid .dots i.mine{background:var(--accent)}
+.cal-grid .dots small{font-size:10px;color:var(--muted);line-height:1}
+@media(max-width:430px){.view-tabs{gap:0}.view-tabs button{padding:0 9px!important}.view-tabs button svg{display:none}} /* 탭 4개(캘린더 추가)가 휴대폰 폭에 들어가게 */
 .view-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:-6px 0 18px}
 .view-tabs button{height:44px;padding:0 16px;border:0;background:transparent;border-bottom:3px solid transparent;margin-bottom:-1px;font-size:15px;font-weight:700;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
 .view-tabs button[aria-selected="true"]{color:var(--primary);border-bottom-color:var(--primary)}
@@ -326,6 +341,7 @@ body.has-alert .wrap{padding-bottom:150px}
 
   <nav class="view-tabs" id="viewTabs" role="tablist" aria-label="화면">
     <button role="tab" data-view="work" aria-selected="true"><svg class="i"><use href="#i-list"/></svg>업무</button>
+    <button role="tab" data-view="cal" aria-selected="false"><svg class="i"><use href="#i-cal"/></svg>캘린더</button>
     <button role="tab" data-view="leave" aria-selected="false"><svg class="i"><use href="#i-cal"/></svg>휴가<span class="n" id="nLeave" aria-label="승인 대기" hidden></span></button>
     <button role="tab" data-view="members" aria-selected="false"><svg class="i"><use href="#i-users"/></svg>멤버 관리</button>
   </nav>
@@ -396,6 +412,18 @@ body.has-alert .wrap{padding-bottom:150px}
       </section>
     </div>
   </main>
+  </div>
+
+  <div id="calView" class="grid" hidden>
+    <section class="card" aria-labelledby="calTitle">
+      <div class="cal-head"><h2 id="calTitle"></h2><button class="btn sm ghost icon" type="button" id="calPrev" aria-label="이전 달">‹</button><button class="btn sm" type="button" id="calToday">오늘</button><button class="btn sm ghost icon" type="button" id="calNext" aria-label="다음 달">›</button></div>
+      <div class="cal-grid" id="calGrid"></div>
+      <p class="space-desc" style="margin:10px 0 0">팀 공유 일정과 승인된 휴가(팀 캘린더), 공휴일(빨간 날)입니다. 지난 3개월 ~ 앞으로 13개월이 보입니다.</p>
+    </section>
+    <section class="card" aria-labelledby="calDayTitle">
+      <div class="card-head"><h2 id="calDayTitle"></h2><span class="right"><button class="btn" type="button" id="calAdd"><svg class="i"><use href="#i-plus"/></svg>일정</button></span></div>
+      <div id="calDay"></div>
+    </section>
   </div>
 
   <div id="leaveView" class="grid" hidden>
@@ -853,7 +881,45 @@ function renderMyMemos(){
   ).join('') : '<div class="empty" style="grid-column:1/-1">나만 볼 메모를 남겨 보세요.</div>';
 }
 
+function evRow(e){
+  const d = new Date(e.start);
+  const time = e.allDay ? '종일' : pad(d.getHours()) + ':' + pad(d.getMinutes());
+  return '<div class="ev' + (e.mine ? ' mine' : '') + '"><span class="time">' + time + '</span><span class="bar"></span>' +
+    '<div class="t"><div>' + esc(e.title) + saveFlag(e) + '</div>' + (e.mine ? '<small>내 캘린더 · 팀원에게는 안 보임</small>' : (e.location ? '<small>' + esc(e.location) + '</small>' : '')) + '</div>' +
+    (e.mine ? '' : '<button class="btn ghost icon del" data-delev="' + esc(e.id) + '" aria-label="일정 삭제: ' + esc(e.title) + '">' + icon('trash') + '</button>') + '</div>';
+}
+// ───── 캘린더(2026-11-06): 팀 공유 일정·승인 휴가(팀 캘린더)·공휴일을 달로 — 자료는 업무 탭과 같은 S.events(서버가 지난 92일~앞으로 400일) ─────
+const CAL = { y: new Date().getFullYear(), m: new Date().getMonth() + 1, sel: todayStr() };
+const evDays = e => { // 일정이 걸친 날(종일 일정의 끝 날짜는 다음 날 0시라 빼고)
+  const s0 = new Date(e.start), out = [ymd(s0)];
+  if (e.allDay) for (let t = addDays(s0, 1); t.getTime() < e.end && out.length < 62; t = addDays(t, 1)) out.push(ymd(t));
+  return out;
+};
+function renderCal(){
+  const by = {};
+  S.events.forEach(e => evDays(e).forEach(k => { (by[k] = by[k] || []).push(e); }));
+  const y = CAL.y, m = CAL.m, lead = new Date(y, m - 1, 1).getDay(), last = new Date(y, m, 0).getDate(), today = todayStr();
+  $('#calTitle').textContent = y + '년 ' + m + '월';
+  let h = WD.map((w, i) => '<span class="wd' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '') + '">' + w + '</span>').join('');
+  for (let i = 0; i < lead; i++) h += '<span></span>';
+  for (let d = 1; d <= last; d++) {
+    const k = y + '-' + pad(m) + '-' + pad(d), dw = new Date(y, m - 1, d).getDay(), list = by[k] || [];
+    const cls = [k === today ? 'today' : '', k === CAL.sel ? 'sel' : '', HOLIDAYS.has(k) || dw === 0 ? 'sun' : dw === 6 ? 'sat' : ''].filter(Boolean).join(' ');
+    h += '<button type="button" data-day="' + k + '" class="' + cls + '" aria-pressed="' + (k === CAL.sel) + '" aria-label="' + m + '월 ' + d + '일' + (HOLIDAYS.has(k) ? ' 공휴일' : '') + (list.length ? ' 일정 ' + list.length + '건' : '') + '"><span class="dn">' + d + '</span>' +
+      (list.length ? '<span class="dots" aria-hidden="true">' + list.slice(0, 3).map(e => '<i' + (e.mine ? ' class="mine"' : '') + '></i>').join('') + (list.length > 3 ? '<small>+' + (list.length - 3) + '</small>' : '') + '</span>' : '') + '</button>';
+  }
+  $('#calGrid').innerHTML = h;
+  const sl = by[CAL.sel] || [], n = dayDiff(CAL.sel);
+  $('#calDayTitle').textContent = (n === 0 ? '오늘 ' : n === 1 ? '내일 ' : '') + md(CAL.sel) + (HOLIDAYS.has(CAL.sel) ? ' · 공휴일' : '') + (sl.length ? ' · ' + sl.length + '건' : '');
+  $('#calDay').innerHTML = sl.length ? sl.map(evRow).join('') : '<div class="empty">이날 일정이 없습니다.</div>';
+}
+const calMove = k => { const t = new Date(CAL.y, CAL.m - 1 + k, 1); CAL.y = t.getFullYear(); CAL.m = t.getMonth() + 1; renderCal(); };
+$('#calPrev').addEventListener('click', () => calMove(-1));
+$('#calNext').addEventListener('click', () => calMove(1));
+$('#calToday').addEventListener('click', () => { const t = new Date(); CAL.y = t.getFullYear(); CAL.m = t.getMonth() + 1; CAL.sel = todayStr(); renderCal(); });
+$('#calGrid').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (!b) return; CAL.sel = b.dataset.day; renderCal(); });
 function renderEvents(){
+  renderCal();
   const box = $('#eventList');
   const near = S.events.filter(e => { const n = dayDiff(ymd(new Date(e.start))); return n >= 0 && n < 14; }); // 서버는 넓게(지난 3개월~13개월) 돌려줌 — 여기는 앞으로 2주만(2026-10-28)
   if (!near.length) { box.innerHTML = '<div class="empty">앞으로 2주간 일정이 없습니다.</div>'; return; }
@@ -862,13 +928,7 @@ function renderEvents(){
   box.innerHTML = Object.keys(days).sort().map(k => {
     const n = dayDiff(k);
     const rel = n === 0 ? '<span class="t">오늘</span> ' : n === 1 ? '<span class="t">내일</span> ' : '';
-    return '<div class="day"><h3>' + rel + md(k) + '</h3>' + days[k].map(e => {
-      const d = new Date(e.start);
-      const time = e.allDay ? '종일' : pad(d.getHours()) + ':' + pad(d.getMinutes());
-      return '<div class="ev' + (e.mine ? ' mine' : '') + '"><span class="time">' + time + '</span><span class="bar"></span>' +
-        '<div class="t"><div>' + esc(e.title) + saveFlag(e) + '</div>' + (e.mine ? '<small>내 캘린더 · 팀원에게는 안 보임</small>' : (e.location ? '<small>' + esc(e.location) + '</small>' : '')) + '</div>' +
-        (e.mine ? '' : '<button class="btn ghost icon del" data-delev="' + esc(e.id) + '" aria-label="일정 삭제: ' + esc(e.title) + '">' + icon('trash') + '</button>') + '</div>';
-    }).join('') + '</div>';
+    return '<div class="day"><h3>' + rel + md(k) + '</h3>' + days[k].map(evRow).join('') + '</div>';
   }).join('');
 }
 
@@ -1188,9 +1248,9 @@ $('#nDel').addEventListener('click', () => {
 const timeOpts = (vals, unit, def) => vals.map(x => '<option value="' + x + '"' + (x === def ? ' selected' : '') + '>' + x + unit + '</option>').join('');
 const HOUR_VALS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')), MIN_VALS = ['00', '10', '20', '30', '40', '50'];
 [['eStart', '10'], ['eEnd', '11']].forEach(([id, h]) => { $('#' + id + 'H').innerHTML = timeOpts(HOUR_VALS, '시', h); $('#' + id + 'M').innerHTML = timeOpts(MIN_VALS, '분', '00'); });
-$('#addEvent').addEventListener('click', () => {
-  $('#eventForm').reset(); $('#eDate').value = todayStr(); $('#eTimes').hidden = false; $('#eventDlg').showModal();
-});
+function openEventDlg(date){ $('#eventForm').reset(); $('#eDate').value = date || todayStr(); $('#eTimes').hidden = false; $('#eventDlg').showModal(); }
+$('#addEvent').addEventListener('click', () => openEventDlg(todayStr()));
+$('#calAdd').addEventListener('click', () => openEventDlg(CAL.sel));
 $('#eAll').addEventListener('change', e => { $('#eTimes').hidden = e.target.checked; });
 $('#eventForm').addEventListener('submit', e => {
   e.preventDefault();
@@ -1200,14 +1260,16 @@ $('#eventForm').addEventListener('submit', e => {
   enqueue('addEvent', [ev], '일정 추가: ' + ev.title);
   toast('일정을 추가했습니다');
 });
-$('#eventList').addEventListener('click', e => {
+const onDelEvent = e => {
   const b = e.target.closest('[data-delev]'); if (!b) return;
   if (isTmp(b.dataset.delev)) { toast('아직 저장되지 않은 항목입니다. 저장이 끝난 뒤 다시 눌러 주세요'); return; }
   if (!confirm('이 일정을 삭제할까요?')) return;
   const id = b.dataset.delev, gone = S.events.find(x => x.id === id);
   enqueue('deleteEvent', [id], '일정 삭제: ' + (gone ? gone.title : ''));
   toast('삭제했습니다');
-});
+};
+$('#eventList').addEventListener('click', onDelEvent);
+$('#calDay').addEventListener('click', onDelEvent);
 
 // 공통
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
@@ -1607,6 +1669,7 @@ $('#viewTabs').addEventListener('click', e => {
   S.view = b.dataset.view;
   $$('#viewTabs [data-view]').forEach(x => x.setAttribute('aria-selected', x.dataset.view === S.view));
   $('#workView').hidden = S.view !== 'work';
+  $('#calView').hidden = S.view !== 'cal';
   $('#leaveView').hidden = S.view !== 'leave';
   $('#membersView').hidden = S.view !== 'members';
   if (S.view === 'members') loadMembers(); else if (S.view === 'leave') loadLeave(false); else load(true);
