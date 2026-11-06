@@ -53,6 +53,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
     if (ok) { lab.textContent = '복사됨'; btn.classList.add('ok'); toast('복사되었습니다. 은행 앱에 붙여넣어 주십시오'); setTimeout(() => { lab.textContent = '복사'; btn.classList.remove('ok'); }, 2500); }
     else toast('번호를 길게 눌러 직접 복사해 주십시오');
   }
+  const dfmt = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); if (!m) return s; const y = +m[1], mo = +m[2], d = +m[3]; return y + '년 ' + mo + '월 ' + d + '일(' + '일월화수목금토'[new Date(y, mo - 1, d).getDay()] + ')'; };  // 위택스·고지는 날짜만 와서 모양이 달랐음(2026-11-06)
   const dday = (iso) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return null;
     const t = new Date(), a = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()), p = iso.split('-').map(Number);
@@ -65,7 +66,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
     const pill = dd == null ? '' : '<span class="pill' + (late ? ' late' : soon ? ' soon' : '') + '">' + (dd > 0 ? 'D-' + dd : dd === 0 ? '오늘까지' : '납부기한이 경과되었습니다') + '</span>';
     return '<section class="card in" style="animation-delay:' + 60 * (i + 1) + 'ms"><div class="title">' + esc(x.title) + '</div><div class="lab">납부할 세액</div><div class="amt num">' + won(x.amt) + '원</div>' +
       (x.add > 0 ? '<div class="add num">가산세 ' + won(x.add) + '원 포함</div>' : '') +
-      '<div class="due"><span>납부기한</span><b class="num">' + esc(x.dueText || x.due) + '</b>' + pill + (x.dueNote ? '<span class="dnote">' + esc(x.dueNote) + '</span>' : '') + '</div>' +
+      '<div class="due"><span>납부기한</span><b class="num">' + esc(dfmt(x.dueText || x.due)) + '</b>' + pill + (x.dueNote ? '<span class="dnote">' + esc(x.dueNote) + '</span>' : '') + '</div>' +
       (accts ? '<div class="sec"><div class="sec-h">납부 계좌 · 아래 중 한 곳으로 이체</div><div class="accts">' + accts + '</div>' + (x.valid ? '<div class="valid num">가상계좌 유효기간 ' + esc(x.valid) + ' · 밤 11시까지 납부 가능</div>' : '') + '</div>' : '') +
       (rows ? '<div class="sec"><dl class="facts">' + rows + '</dl></div>' : '') + (x.note ? '<div class="note">' + esc(x.note) + '</div>' : '') +
       (x.eno ? '<div class="eno"><div class="sec-h">전자납부번호 · 은행 앱 \'국세 납부\'용</div><div class="row"><div class="no num">' + esc(x.eno) + '</div>' + cpBtn(x.eno, '전자납부번호') + '</div></div>' : '') + '</section>';
