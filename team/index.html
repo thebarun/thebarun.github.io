@@ -265,6 +265,9 @@ body.has-alert .wrap{padding-bottom:150px}
 .member{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .member .nm{flex:1;min-width:110px;font-weight:700;display:flex;align-items:center;gap:8px}
 .member .acts{display:flex;gap:6px;flex-wrap:wrap}
+.member .ttl{font-size:12.5px;font-weight:600;color:var(--muted)}
+.tag.off{background:var(--border);color:var(--muted)}
+.al-table{text-align:left}.al-table th,.al-table td{text-align:left}.al-table th:last-child,.al-table td.r{text-align:right}
 .btn.sm{height:34px;padding:0 10px;font-size:13px}
 .tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--primary-soft);color:var(--primary)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -440,6 +443,10 @@ body.has-alert .wrap{padding-bottom:150px}
         <button class="btn primary" type="submit">변경</button>
       </form>
     </section>
+    <section class="card" aria-labelledby="hAccess" style="grid-column:1/-1">
+      <div class="card-head"><h2 id="hAccess"><svg class="i"><use href="#i-users"/></svg>접속 기록</h2><span class="right"><button class="btn sm ghost" type="button" id="alReload">새로고침</button></span></div>
+      <div id="alBody"><p class="space-desc">불러오는 중…</p></div>
+    </section>
   </div>
 </div>
 
@@ -488,6 +495,23 @@ body.has-alert .wrap{padding-bottom:150px}
       <span class="sp"></span>
       <button type="button" class="btn" data-close>취소</button>
       <button type="submit" class="btn primary" value="save">저장</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 팀원 정보(이름·직급·구글 계정) -->
+<dialog id="memDlg">
+  <form class="dlg" method="dialog" id="memForm">
+    <h2 id="memDlgTitle">팀원 정보</h2>
+    <div class="field" id="mdNameF"><label for="mdName">이름</label><input id="mdName" class="input" maxlength="20"></div>
+    <p class="hint" id="mdNameHint">이름을 바꿔도 로그인 코드는 그대로이고, 업무 지시·메모 작성자도 새 이름으로 옮겨집니다. 세무대시보드의 거래처 담당 지정은 PC 세무대시보드 팀원 관리에서 바꿔야 함께 옮겨집니다.</p>
+    <div class="field"><label for="mdTitle">직급</label><select id="mdTitle" class="select"></select></div>
+    <div class="field" id="mdMailF"><label for="mdMail">구글 계정</label><input id="mdMail" class="input" type="email" placeholder="구글 메일 주소" maxlength="254" autocomplete="off"></div>
+    <p class="hint" id="mdMailHint">웹판(dash.thebaruntax.kr)에 이 구글 계정으로 로그인하면 로그인 코드 없이 이 사람으로 연결됩니다. 비우면 연결을 풉니다.</p>
+    <div class="dlg-foot">
+      <span class="sp"></span>
+      <button type="button" class="btn" data-close>취소</button>
+      <button type="submit" class="btn primary" id="mdSave" value="save">저장</button>
     </div>
   </form>
 </dialog>
@@ -1272,8 +1296,10 @@ function renderMembers(){
     const locked = !owner && m.role === 'manager'; // 다른 관리자는 대표만 바꿀 수 있음
     const me = m.name === M.me;
     return '<li class="member">' +
-    '<span class="nm">' + av(m.name) + esc(m.name) + ' ' + roleTag(admin ? 'admin' : m.role) + (me ? ' <span class="tag">나</span>' : '') + '</span>' +
+    '<span class="nm">' + av(m.name) + esc(m.name) + (m.title ? ' <span class="ttl">' + esc(m.title) + '</span>' : '') + ' ' + roleTag(admin ? 'admin' : m.role) + (me ? ' <span class="tag">나</span>' : '') +
+      ' <span class="tag' + (m.email ? '' : ' off') + '" title="' + esc(m.email || '웹판 자동 로그인에 쓸 구글 계정이 아직 없습니다') + '">' + (m.email ? '구글 연결' : '구글 미연결') + '</span></span>' +
     '<span class="acts">' +
+      (locked ? '' : '<button class="btn sm" data-act="edit" data-name="' + esc(m.name) + '">수정</button>') +
       (owner && !admin ? '<select class="select" data-role="' + esc(m.name) + '" aria-label="' + esc(m.name) + ' 역할" style="height:34px;font-size:13px">' +
         '<option value="team"' + (m.role === 'team' ? ' selected' : '') + '>팀원</option><option value="manager"' + (m.role === 'manager' ? ' selected' : '') + '>관리자</option></select>' : '') +
       (admin && !m.link ? '' :
@@ -1286,6 +1312,7 @@ function renderMembers(){
   $('#memCount').textContent = M.members.length + ' / ' + M.max + '명';
   $('#memberList').innerHTML = row(M.admin, true) + (M.members.length ? M.members.map(m => row(m, false)).join('') : '<li class="empty">아직 팀원이 없습니다. 아래에서 추가하세요.</li>');
   $('#memAdd').hidden = M.members.length >= M.max;
+  renderAccess();
 }
 $('#memberList').addEventListener('change', e => {
   const sel = e.target.closest('[data-role]'); if (!sel) return;
@@ -1294,6 +1321,7 @@ $('#memberList').addEventListener('change', e => {
   run(call('setRole', name, role), r => { M = r; renderMembers(); toast('역할을 바꿨습니다'); });
 });
 async function loadMembers(){
+  loadAccess();
   try { M = await call('getMembers'); renderMembers(); } catch (e) { fail(e); }
 }
 const membersChanged = r => { M = r; renderMembers(); load(true); };
@@ -1302,6 +1330,7 @@ $('#memberList').addEventListener('click', async e => {
   const name = b.dataset.name;
   const m = name === M.admin.name ? M.admin : M.members.find(x => x.name === name); if (!m) return;
   const act = b.dataset.act;
+  if (act === 'edit') { openMemEdit(m, m === M.admin); return; }
   if (act === 'share') {
     try { await navigator.share({ title: BOOT.title, text: inviteText(m) }); }
     catch (err) { if (err && err.name === 'AbortError') return; if (await copyText(inviteText(m))) toast('보내기가 안 돼서 초대 메시지를 복사했습니다'); }
@@ -1320,6 +1349,69 @@ $('#memAdd').addEventListener('submit', e => {
   const name = $('#memName').value.trim(); if (!name) return;
   run(call('addMember', name), r => { $('#memName').value = ''; membersChanged(r); toast(name + '님을 추가했습니다 · 초대 링크를 보내 주세요'); });
 });
+// ───── 팀원 정보: 이름·직급·구글 계정(2026-11-06, PC 팀원 관리와 같은 서버 함수) ─────
+const TITLE_LIST = ['대표', '세무사', '회계사', '실장', '팀장', '과장', '대리', '주임', '사원']; // PC 팀원 관리와 같은 목록(목록에 없는 기존 값도 그대로 보임)
+let memEdit = null;
+function openMemEdit(m, admin){
+  const mailOk = !admin || M.myRole === 'admin'; // 대표 계정의 구글 계정은 대표만(서버 setMemberEmail 과 같음)
+  memEdit = { m, admin, mailOk };
+  $('#memDlgTitle').textContent = m.name + ' 정보';
+  $('#mdNameF').hidden = $('#mdNameHint').hidden = admin; $('#mdName').value = m.name;
+  $('#mdTitle').innerHTML = Array.from(new Set(['', ...TITLE_LIST, m.title || ''])).map(x => '<option value="' + esc(x) + '"' + (x === (m.title || '') ? ' selected' : '') + '>' + esc(x || '직급 선택') + '</option>').join('');
+  $('#mdMailF').hidden = $('#mdMailHint').hidden = !mailOk; $('#mdMail').value = m.email || '';
+  $('#mdSave').disabled = false;
+  $('#memDlg').showModal();
+}
+$('#memForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!memEdit) return;
+  const { m, admin, mailOk } = memEdit;
+  const title = $('#mdTitle').value, mail = $('#mdMail').value.trim().toLowerCase(), nn = admin ? m.name : $('#mdName').value.trim();
+  if (!nn) { toast('이름을 입력하세요'); return; }
+  const steps = []; // 직급·계정을 옛 이름으로 먼저, 이름 변경은 맨 끝
+  if (title !== (m.title || '')) steps.push(['setTitle', m.name, title]);
+  if (mailOk && mail !== (m.email || '')) steps.push(['setMemberEmail', m.name, mail]);
+  if (nn !== m.name) {
+    if (!confirm(m.name + ' → ' + nn + ' 으로 이름을 바꿀까요?\n로그인 코드는 그대로입니다. 세무대시보드의 거래처 담당 지정은 PC 팀원 관리에서 바꿔야 함께 옮겨집니다.')) return;
+    steps.push(['renameMember', m.name, nn]);
+  }
+  if (!steps.length) { $('#memDlg').close(); return; }
+  $('#mdSave').disabled = true;
+  let r = null;
+  try { for (const st of steps) r = await call.apply(null, st); }
+  catch (err) { $('#mdSave').disabled = false; fail(err); if (r) membersChanged(r); return; } // 앞 단계는 저장됐을 수 있어 지금 상태로 맞춤
+  $('#memDlg').close();
+  membersChanged(r);
+  toast(nn !== m.name ? m.name + ' → ' + nn + ' 으로 바꿨습니다' : '저장했습니다');
+  if (nn !== m.name && m.name === M.me) setTimeout(() => location.reload(), 900); // 내 이름을 바꿨으면 화면의 내 이름도 새로
+});
+// ───── 접속 기록(대표·관리자, PC 팀원 관리 '접속 기록' 카드와 같은 내용) ─────
+let AL = null, alWho = '';
+const fmtT = t => { const d = new Date(t); return isNaN(d) ? '—' : d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+function renderAccess(){
+  const box = $('#alBody');
+  if (AL && AL.err) { box.innerHTML = '<p class="space-desc" style="color:var(--danger)">' + esc(AL.err) + '</p>'; return; }
+  if (!AL || !AL.rows) { box.innerHTML = '<p class="space-desc">불러오는 중…</p>'; return; }
+  const names = M ? [M.admin.name].concat(M.members.map(x => x.name)) : [];
+  const list = AL.rows, since = Date.now() - 30 * 86400000;
+  const sum = names.map(n => { const mine = list.filter(r => r.name === n), l = mine[0];
+    return '<tr><td>' + esc(n) + '</td><td>' + (l ? fmtT(l.t) : '<span style="color:var(--muted)">기록 없음</span>') + '</td><td>' + (l ? esc(l.via + ' · ' + l.what) : '') + '</td><td class="r">' + mine.filter(r => r.t >= since).length + '회</td></tr>'; }).join('');
+  const shown = list.filter(r => !alWho || r.name === alWho).slice(0, 100);
+  box.innerHTML = '<div style="overflow-x:auto"><table class="lv-table al-table"><thead><tr><th scope="col">이름</th><th scope="col">마지막 접속</th><th scope="col">방식</th><th scope="col">최근 30일</th></tr></thead><tbody>' + sum + '</tbody></table></div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px;flex-wrap:wrap"><b style="font-size:13px">최근 기록</b><select class="select" id="alWho" aria-label="사람 고르기" style="height:32px;font-size:13px;width:auto"><option value="">전체</option>' +
+    names.map(n => '<option value="' + esc(n) + '"' + (n === alWho ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select><small style="color:var(--muted);margin-left:auto">최근 ' + shown.length + '건 · 대시보드를 열면 30분에 한 번만 남습니다</small></div>' +
+    (shown.length ? '<div style="max-height:360px;overflow:auto"><table class="lv-table al-table"><thead><tr><th scope="col">시각</th><th scope="col">이름</th><th scope="col">방식</th><th scope="col">구분</th></tr></thead><tbody>' +
+      shown.map(r => '<tr><td>' + fmtT(r.t) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.via) + '</td><td>' + esc(r.what) + '</td></tr>').join('') + '</tbody></table></div>'
+      : '<p class="space-desc">기록이 없습니다.</p>');
+}
+async function loadAccess(){
+  AL = { rows: AL && AL.rows }; renderAccess();
+  try { const r = await call('getAccessLog', 1000); AL = { rows: Array.isArray(r) ? r : [] }; }
+  catch (e) { const m = (e && e.message) || ''; AL = { err: /지원하지 않는|is not a function|not found/i.test(m) ? '팀 서버가 아직 새 판이 아닙니다(몇 분 뒤 자동 배포).' : m.indexOf('LOGIN_REQUIRED') >= 0 ? '다시 로그인해 주세요' : (m || '불러오지 못했습니다') }; }
+  renderAccess();
+}
+$('#alReload').addEventListener('click', loadAccess);
+$('#alBody').addEventListener('change', e => { if (e.target.id === 'alWho') { alWho = e.target.value; renderAccess(); } });
 $('#pinForm').addEventListener('submit', e => {
   e.preventDefault();
   const pin = $('#pinNew').value.trim();
@@ -1582,8 +1674,8 @@ function initMock(){
   const leaveView = () => ({ me:BOOT.me, boss:CAN_MANAGE, members: CAN_MANAGE ? MEMBERS : [BOOT.me], days: lv.days, hire: lv.hire, carry: lv.carry, list: lv.list.filter(x => CAN_MANAGE || x.name === BOOT.me) });
   const URL = 'https://script.google.com/macros/s/데모/exec?key=';
   const mem = {}; MEMBERS.slice(1).forEach((n, i) => { mem[n] = 'demo' + i; });
-  const roles = {};
-  const memList = () => ({ me: MEMBERS[0], myRole: 'admin', admin: { name: MEMBERS[0], role: 'admin', link: URL + 'admin' }, members: Object.keys(mem).map(n => ({ name: n, role: roles[n] || 'team', link: URL + mem[n] })), max: 5 });
+  const roles = {}, titles = {}, mails = {};
+  const memList = () => ({ me: MEMBERS[0], myRole: 'admin', admin: { name: MEMBERS[0], role: 'admin', title: titles[MEMBERS[0]] || '', email: mails[MEMBERS[0]] || '', link: URL + 'admin' }, members: Object.keys(mem).map(n => ({ name: n, role: roles[n] || 'team', title: titles[n] || '', email: mails[n] || '', link: URL + mem[n] })), max: 5 });
   const syncMembers = () => { MEMBERS = [MEMBERS[0]].concat(Object.keys(mem)); return memList(); };
   MOCK = {
     login: pin => { if (pin !== '0000') throw new Error('비밀번호가 맞지 않습니다. (데모 비밀번호 0000)'); return 'demo-token'; },
@@ -1592,6 +1684,10 @@ function initMock(){
     addMember: n => { if (mem[n] || n === MEMBERS[0]) throw new Error('이미 있는 이름입니다.'); if (Object.keys(mem).length >= 5) throw new Error('팀원은 최대 5명까지입니다.'); mem[n] = 'demo' + (++seq); return syncMembers(); },
     removeMember: n => { delete mem[n]; return syncMembers(); },
     resetMemberLink: n => { mem[n] = 'demo' + (++seq); return memList(); },
+    setTitle: (n, t) => { if (t) titles[n] = t; else delete titles[n]; return memList(); },
+    setMemberEmail: (n, e) => { Object.keys(mails).forEach(k => { if (mails[k] === e) delete mails[k]; }); if (e) mails[n] = e; else delete mails[n]; return memList(); },
+    renameMember: (o, n) => { if (mem[n] || n === MEMBERS[0]) throw new Error('이미 있는 이름입니다.'); const k = {}; Object.keys(mem).forEach(x => { k[x === o ? n : x] = mem[x]; }); Object.keys(mem).forEach(x => delete mem[x]); Object.assign(mem, k); [roles, titles, mails].forEach(m => { if (o in m) { m[n] = m[o]; delete m[o]; } }); return syncMembers(); },
+    getAccessLog: () => [{ t: Date.now() - 3600000, name: MEMBERS[1], role: 'team', via: '휴대폰', what: '코드 로그인' }, { t: Date.now() - 86400000, name: MEMBERS[0], role: 'admin', via: '웹판 구글', what: '구글 자동 로그인' }],
     setPin: () => 'demo-token',
     getTasks: () => ({ members: MEMBERS, tasks: db.tasks, lists: [{ id:'L1', title:'팀 공유', team:true }, { id:'L2', title:'내 할 일', team:false }] }),
     getNotes: () => db.notes,
