@@ -69,7 +69,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
       '<div class="due"><span>납부기한</span><b class="num">' + esc(dfmt(x.dueText || x.due)) + '</b>' + pill + (x.dueNote ? '<span class="dnote">' + esc(x.dueNote) + '</span>' : '') + '</div>' +
       (accts ? '<div class="sec"><div class="sec-h">납부 계좌 · 아래 중 한 곳으로 이체</div><div class="accts">' + accts + '</div>' + (x.valid ? '<div class="valid num">가상계좌 유효기간 ' + esc(x.valid) + ' · 밤 11시까지 납부 가능</div>' : '') + '</div>' : '') +
       (rows ? '<div class="sec"><dl class="facts">' + rows + '</dl></div>' : '') + (x.note ? '<div class="note">' + esc(x.note) + '</div>' : '') +
-      (x.eno ? '<div class="eno"><div class="sec-h">전자납부번호 · 은행 앱 \'국세 납부\'용</div><div class="row"><div class="no num">' + esc(x.eno) + '</div>' + cpBtn(x.eno, '전자납부번호') + '</div></div>' : '') + '</section>';
+      (x.eno ? '<div class="eno"><div class="sec-h">전자납부번호 · 은행 앱 \'' + (/지방소득세|지방세|위택스/.test(x.title || '') ? '지방세' : '국세') + ' 납부\'용</div><div class="row"><div class="no num">' + esc(x.eno) + '</div>' + cpBtn(x.eno, '전자납부번호') + '</div></div>' : '') + '</section>';
   }
   async function show(bin, k) {
     let data;
