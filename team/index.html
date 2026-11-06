@@ -278,8 +278,10 @@ body.has-alert .wrap{padding-bottom:150px}
 @media (max-width:1024px){ .members-wrap{grid-template-columns:minmax(0,1fr)} }
 .members{list-style:none;margin:0 0 14px;padding:0}
 .member{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.member .nm{flex:1;min-width:110px;font-weight:700;display:flex;align-items:center;gap:8px}
+.member .nm{flex:1;min-width:110px;font-weight:700;display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
 .member .acts{display:flex;gap:6px;flex-wrap:wrap}
+.member .mn,.member .ttl,.member .tag{white-space:nowrap}
+@media(max-width:600px){.member .acts{flex:1 1 100%;justify-content:flex-end}} /* 휴대폰: 윗줄 이름·표시, 아랫줄 단추(2026-11-06 — 단추가 '구글 연결'을 덮고 이름이 꺾였음) */
 .md-acts{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 16px;padding-top:12px;border-top:1px solid var(--border)}
 .md-acts:empty{display:none}
 .member .ttl{font-size:12.5px;font-weight:600;color:var(--muted)}
@@ -1359,7 +1361,7 @@ function renderMembers(){
     const locked = !owner && m.role === 'manager'; // 다른 관리자는 대표만 바꿀 수 있음
     const me = m.name === M.me;
     return '<li class="member">' +
-    '<span class="nm">' + av(m.name) + esc(m.name) + (m.title ? ' <span class="ttl">' + esc(m.title) + '</span>' : '') + ' ' + roleTag(admin ? 'admin' : m.role) + (me ? ' <span class="tag">나</span>' : '') +
+    '<span class="nm">' + av(m.name) + '<span class="mn">' + esc(m.name) + '</span>' + (m.title ? ' <span class="ttl">' + esc(m.title) + '</span>' : '') + ' ' + roleTag(admin ? 'admin' : m.role) + (me ? ' <span class="tag">나</span>' : '') +
       ' <span class="tag' + (m.email ? '' : ' off') + '" title="' + esc(m.email || '웹판 자동 로그인에 쓸 구글 계정이 아직 없습니다') + '">' + (m.email ? '구글 연결' : '구글 미연결') + '</span></span>' +
     '<span class="acts">' +
       (locked ? '' : '<button class="btn sm" data-act="edit" data-name="' + esc(m.name) + '">수정</button>') + // 역할·보내기·새 링크·삭제는 수정 창 안(2026-11-06)
