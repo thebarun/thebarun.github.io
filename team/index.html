@@ -353,8 +353,8 @@ body.has-alert .wrap{padding-bottom:150px}
 
   <div id="workView">
   <section class="stats" aria-label="요약">
-    <button class="stat" data-stat="today" aria-pressed="false"><div class="ic orange"><svg class="i"><use href="#i-clock"/></svg></div><div><b id="sToday">–</b><span>오늘 마감</span></div></button>
-    <button class="stat" data-stat="over" aria-pressed="false"><div class="ic red"><svg class="i"><use href="#i-alert"/></svg></div><div><b id="sOver">–</b><span>기한 지남</span></div></button>
+    <button class="stat" data-go="memo" type="button"><div class="ic orange"><svg class="i"><use href="#i-note"/></svg></div><div><b id="sMemo">–</b><span>메모</span></div></button>
+    <button class="stat" data-go="events" type="button"><div class="ic teal"><svg class="i"><use href="#i-cal"/></svg></div><div><b id="sEv">–</b><span>다가오는 일정</span></div></button>
     <button class="stat" data-stat="in" aria-pressed="false"><div class="ic teal"><svg class="i"><use href="#i-users"/></svg></div><div><b id="sIn">–</b><span>받은 지시</span></div></button>
     <button class="stat" data-stat="open" aria-pressed="false"><div class="ic green"><svg class="i"><use href="#i-list"/></svg></div><div><b id="sOpen">–</b><span>내 진행 중</span></div></button>
   </section>
@@ -783,10 +783,14 @@ const QUICK = {
   over: ['기한 지남', x => !!x.due && x.due < todayStr()],
   in: ['받은 지시', x => x.team && x.assignee === S.me && !!x.requester && x.requester !== S.me]
 };
+// 위 요약의 메모·다가오는 일정 칸(2026-11-07 대표님 요청 — 오늘 마감·기한 지남 칸 대신, 누르면 그 자리로)
+function renderGo(){
+  const m = $('#sMemo'), e = $('#sEv'); if (!m || !e) return;
+  m.textContent = S.notes.length + S.mymemos.length;
+  e.textContent = S.events.filter(x => { const n = dayDiff(ymd(new Date(x.start))); return n >= 0 && n < 14; }).length;
+}
 function renderStats(){
   const open = S.tasks.filter(x => !x.done && inSpace(x, 'mine'));
-  $('#sToday').textContent = open.filter(QUICK.today[1]).length;
-  $('#sOver').textContent = open.filter(QUICK.over[1]).length;
   $('#sIn').textContent = open.filter(QUICK.in[1]).length;
   $('#sOpen').textContent = open.length;
   const on = S.space === 'mine' && S.tab === 'open' ? (S.quick || 'open') : '';
@@ -874,7 +878,7 @@ function renderTasks(){
 
 function renderNotes(){
   const list = S.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updated - a.updated));
-  $('#noteCount').textContent = list.length || '';
+  $('#noteCount').textContent = list.length || ''; renderGo();
   $('#noteList').innerHTML = list.length ? list.map(n =>
     '<button class="note-card" data-note="' + esc(n.id) + '" style="--nc:var(--n-' + esc(n.color || 'default') + ')">' +
       '<div class="note-top"><strong>' + esc(n.title || '(제목 없음)') + '</strong>' + (n.pinned ? '<svg class="i" aria-label="고정됨"><use href="#i-pin"/></svg>' : '') + '</div>' +
@@ -886,7 +890,7 @@ function renderNotes(){
 
 function renderMyMemos(){
   const list = S.mymemos.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updated - a.updated));
-  $('#myMemoCount').textContent = list.length || '';
+  $('#myMemoCount').textContent = list.length || ''; renderGo();
   $('#myMemoList').innerHTML = list.length ? list.map(n =>
     '<button class="note-card" data-mymemo="' + esc(n.id) + '">' +
       '<div class="note-top"><strong>' + esc(n.title || '(제목 없음)') + '</strong>' + (n.pinned ? '<svg class="i" aria-label="고정됨"><use href="#i-pin"/></svg>' : '') + '</div>' +
@@ -934,6 +938,7 @@ $('#calNext').addEventListener('click', () => calMove(1));
 $('#calToday').addEventListener('click', () => { const t = new Date(); CAL.y = t.getFullYear(); CAL.m = t.getMonth() + 1; CAL.sel = todayStr(); renderCal(); });
 $('#calGrid').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (!b) return; CAL.sel = b.dataset.day; renderCal(); });
 function renderEvents(){
+  renderGo();
   renderCal();
   const box = $('#eventList');
   const near = S.events.filter(e => { const n = dayDiff(ymd(new Date(e.start))); return n >= 0 && n < 14; }); // 서버는 넓게(지난 3개월~13개월) 돌려줌 — 여기는 오늘부터 14일(2026-10-28, 11-06 캘린더 탭으로 옮김)
@@ -1201,6 +1206,13 @@ $('.space-tabs').addEventListener('click', e => { const b = e.target.closest('[d
 $('#qDest').addEventListener('change', e => { S.dest = e.target.value; });
 $('#chips').addEventListener('click', e => { const b = e.target.closest('[data-filter]'); if (!b) return; S.filter = b.dataset.filter; renderChips(); renderTasks(); });
 $('.stats').addEventListener('click', e => {
+  const g = e.target.closest('[data-go]');
+  if (g) { // 메모 → 업무 탭 아래 팀 메모판 / 다가오는 일정 → 캘린더 탭의 다가오는 일정
+    const memo = g.dataset.go === 'memo', v = memo ? 'work' : 'cal';
+    if (S.view !== v) $('#viewTabs [data-view="' + v + '"]').click();
+    setTimeout(() => { const h = $(memo ? '#hNotes' : '#hEvents'); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+    return;
+  }
   const b = e.target.closest('[data-stat]'); if (!b) return;
   const k = b.dataset.stat === 'open' ? '' : b.dataset.stat;
   S.quick = S.space === 'mine' && S.tab === 'open' && S.quick === k ? '' : k; // 같은 칸을 다시 누르면 풀림
