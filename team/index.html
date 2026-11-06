@@ -64,6 +64,9 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:12px;text-align:left;transition:border-color .15s}
 .stat:hover{border-color:var(--primary)}
+.stat[aria-pressed="true"]{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+.qf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;border-radius:var(--radius-sm);background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:700}
+.qf .btn{margin-left:auto}
 .stat .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:none}
 .stat b{display:block;font-size:24px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
 .stat span{color:var(--muted);font-size:13px}
@@ -352,10 +355,10 @@ body.has-alert .wrap{padding-bottom:150px}
 
   <div id="workView">
   <section class="stats" aria-label="요약">
-    <button class="stat" data-stat="open"><div class="ic teal"><svg class="i"><use href="#i-list"/></svg></div><div><b id="sOpen">–</b><span>진행 중</span></div></button>
-    <button class="stat" data-stat="today"><div class="ic orange"><svg class="i"><use href="#i-clock"/></svg></div><div><b id="sToday">–</b><span>오늘 마감</span></div></button>
-    <button class="stat" data-stat="over"><div class="ic red"><svg class="i"><use href="#i-alert"/></svg></div><div><b id="sOver">–</b><span>기한 지남</span></div></button>
-    <button class="stat" data-stat="done"><div class="ic green"><svg class="i"><use href="#i-done"/></svg></div><div><b id="sDone">–</b><span>최근 7일 완료</span></div></button>
+    <button class="stat" data-stat="today" aria-pressed="false"><div class="ic orange"><svg class="i"><use href="#i-clock"/></svg></div><div><b id="sToday">–</b><span>오늘 마감</span></div></button>
+    <button class="stat" data-stat="over" aria-pressed="false"><div class="ic red"><svg class="i"><use href="#i-alert"/></svg></div><div><b id="sOver">–</b><span>기한 지남</span></div></button>
+    <button class="stat" data-stat="in" aria-pressed="false"><div class="ic teal"><svg class="i"><use href="#i-users"/></svg></div><div><b id="sIn">–</b><span>받은 지시</span></div></button>
+    <button class="stat" data-stat="open" aria-pressed="false"><div class="ic green"><svg class="i"><use href="#i-list"/></svg></div><div><b id="sOpen">–</b><span>내 진행 중</span></div></button>
   </section>
 
   <main class="grid">
@@ -382,6 +385,7 @@ body.has-alert .wrap{padding-bottom:150px}
       </form>
       <div class="pick" id="qPick" role="group" aria-label="담당자 선택 (여러 명 가능)"></div>
       <div class="chips" id="chips" role="group" aria-label="업무 필터"></div>
+      <div class="qf" id="quickNote" hidden></div>
       <div id="taskList"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
     </section>
 
@@ -775,19 +779,26 @@ function renderSpace(){
   $('#chips').hidden = mine;
 }
 
+// 업무 탭 맨 위 요약(2026-11-06): 화면에서 고른 탭과 상관없이 '내 할 일' 기준. 누르면 내 할 일 탭에서 그것만(QUICK)
+const QUICK = {
+  today: ['오늘 마감', x => x.due === todayStr()],
+  over: ['기한 지남', x => !!x.due && x.due < todayStr()],
+  in: ['받은 지시', x => x.team && x.assignee === S.me && !!x.requester && x.requester !== S.me]
+};
 function renderStats(){
-  const t = todayStr();
-  const all = spaceTasks();
-  const open = all.filter(x => !x.done);
-  const weekAgo = Date.now() - 7 * 86400000;
+  const open = S.tasks.filter(x => !x.done && inSpace(x, 'mine'));
+  $('#sToday').textContent = open.filter(QUICK.today[1]).length;
+  $('#sOver').textContent = open.filter(QUICK.over[1]).length;
+  $('#sIn').textContent = open.filter(QUICK.in[1]).length;
   $('#sOpen').textContent = open.length;
-  $('#sToday').textContent = open.filter(x => x.due === t).length;
-  $('#sOver').textContent = open.filter(x => x.due && x.due < t).length;
-  $('#sDone').textContent = all.filter(x => x.done && x.completed && new Date(x.completed).getTime() >= weekAgo).length;
+  const on = S.space === 'mine' && S.tab === 'open' ? (S.quick || 'open') : '';
+  $$('.stats [data-stat]').forEach(b => b.setAttribute('aria-pressed', b.dataset.stat === on));
 }
 
 function filtered(){
+  const q = S.space === 'mine' && S.quick && QUICK[S.quick];
   return spaceTasks().filter(x => {
+    if (q && !(!x.done && q[1](x))) return false;
     if (S.space === 'mine' || S.filter === 'all') return true;
     if (S.filter === 'in') return x.assignee === S.me;
     if (S.filter === 'out') return x.requester === S.me;
@@ -836,6 +847,9 @@ function taskItem(x){
 
 function renderTasks(){
   const box = $('#taskList');
+  const q = S.space === 'mine' && S.quick && QUICK[S.quick];
+  $('#quickNote').hidden = !q;
+  if (q) $('#quickNote').innerHTML = esc(q[0]) + ' 할 일만 보는 중 <button type="button" class="btn sm" data-qclear>전체 보기</button>';
   const list = filtered();
   const t = todayStr();
   const weekEnd = ymd(addDays(new Date(), 7));
@@ -1184,15 +1198,19 @@ $('#tDel').addEventListener('click', () => {
   toast('삭제했습니다');
 });
 
-$('.seg').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; renderChips(); renderTasks(); });
-$('.space-tabs').addEventListener('click', e => { const b = e.target.closest('[data-space]'); if (!b) return; S.space = b.dataset.space; S.filter = 'all'; renderSpace(); renderStats(); renderChips(); renderTasks(); });
+$('.seg').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; S.tab = b.dataset.tab; S.quick = ''; renderStats(); renderChips(); renderTasks(); });
+$('.space-tabs').addEventListener('click', e => { const b = e.target.closest('[data-space]'); if (!b) return; S.space = b.dataset.space; S.filter = 'all'; S.quick = ''; renderSpace(); renderStats(); renderChips(); renderTasks(); });
 $('#qDest').addEventListener('change', e => { S.dest = e.target.value; });
 $('#chips').addEventListener('click', e => { const b = e.target.closest('[data-filter]'); if (!b) return; S.filter = b.dataset.filter; renderChips(); renderTasks(); });
 $('.stats').addEventListener('click', e => {
   const b = e.target.closest('[data-stat]'); if (!b) return;
-  S.tab = b.dataset.stat === 'done' ? 'done' : 'open'; S.filter = 'all'; renderChips(); renderTasks();
+  const k = b.dataset.stat === 'open' ? '' : b.dataset.stat;
+  S.quick = S.space === 'mine' && S.tab === 'open' && S.quick === k ? '' : k; // 같은 칸을 다시 누르면 풀림
+  S.space = 'mine'; S.tab = 'open'; S.filter = 'all'; renderSpace(); renderStats(); renderChips(); renderTasks();
   $('.space-tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+
+$('#quickNote').addEventListener('click', e => { if (!e.target.closest('[data-qclear]')) return; S.quick = ''; renderStats(); renderTasks(); });
 
 // 메모
 $('#swatches').innerHTML = NOTE_COLORS.map(([v, l]) =>
