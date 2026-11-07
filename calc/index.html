@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
 <meta name="robots" content="noindex">
 <title>세무 계산기 · 더바른 세무회계</title>
-<style>*{box-sizing:border-box}body{margin:0;padding:12px;background:#F4F6F8;color:#1B2A33;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}input,select,button,textarea{font-family:inherit;font-size:16px}table{max-width:100%}</style>
+<style>*{box-sizing:border-box}body{margin:0;padding:12px;background:#F4F6F8;color:#1B2A33;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}input,select,button,textarea{font-family:inherit;font-size:16px}table{max-width:100%}.ye-sec>div:nth-child(2){display:block!important}.ye-sec>div:nth-child(2)>span:last-child{display:block;text-align:left!important;margin-top:4px}</style>
 </head><body><div id="root"></div>
 <script>/**
  * @license React
@@ -360,31 +360,6 @@ const Card = ({
     ...style
   }
 }), children);
-const CardTitle = ({
-  children,
-  right
-}) => React.createElement("div", {
-  style: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    marginBottom: 12,
-    gap: 8
-  }
-}, React.createElement("h3", {
-  style: {
-    fontSize: 15,
-    fontWeight: 800,
-    margin: 0,
-    letterSpacing: "-0.01em"
-  }
-}, children), right && React.createElement("span", {
-  style: {
-    fontSize: 11.5,
-    color: C.sub,
-    whiteSpace: "nowrap"
-  }
-}, right));
 const Pill = ({
   label,
   active,
@@ -457,6 +432,28 @@ const {
   useMemo,
   useEffect
 } = React;
+const CardTitle = ({
+  children,
+  right
+}) => React.createElement("div", {
+  style: {
+    marginBottom: 12
+  }
+}, React.createElement("h3", {
+  style: {
+    fontSize: 16,
+    fontWeight: 800,
+    margin: 0,
+    letterSpacing: "-0.01em"
+  }
+}, children), right && React.createElement("div", {
+  style: {
+    fontSize: 11.5,
+    color: C.sub,
+    marginTop: 3,
+    lineHeight: 1.5
+  }
+}, right));
 const TEXT_HINT = "문구를 고친 뒤 [문구 복사]를 눌러 카카오톡에 붙여 넣으세요";
 const SendShell = ({
   onClose,
