@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; frame-src https://thebaruntax.kr; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -353,6 +353,7 @@ body.has-alert .wrap{padding-bottom:150px}
     <button role="tab" data-view="work" aria-selected="true"><svg class="i"><use href="#i-list"/></svg>업무</button>
     <button role="tab" data-view="cal" aria-selected="false"><svg class="i"><use href="#i-cal"/></svg>캘린더</button>
     <button role="tab" data-view="leave" aria-selected="false"><svg class="i"><use href="#i-cal"/></svg>휴가<span class="n" id="nLeave" aria-label="승인 대기" hidden></span></button>
+    <button role="tab" data-view="calc" aria-selected="false"><svg class="i"><use href="#i-list"/></svg>계산기</button>
     <button role="tab" data-view="members" aria-selected="false"><svg class="i"><use href="#i-users"/></svg>멤버 관리</button>
   </nav>
 
@@ -434,6 +435,8 @@ body.has-alert .wrap{padding-bottom:150px}
     </section>
   </div>
 
+  <!-- 세무 계산기(2026-11-07) — 공개 단독 페이지 thebaruntax.kr/calc/ 를 처음 열 때 불러옴(자료·서버 접속 없음, 계산기화면_만들기.js 로 만듦) -->
+  <div id="calcView" hidden><iframe id="calcFrame" title="세무 계산기" data-src="https://thebaruntax.kr/calc/" style="display:block;width:100%;height:calc(100vh - 150px);min-height:560px;border:0;border-radius:12px;background:#F4F6F8"></iframe></div>
   <div id="leaveView" class="grid" hidden>
     <div class="col">
       <section class="card" aria-labelledby="hLeave">
@@ -1716,6 +1719,8 @@ $('#viewTabs').addEventListener('click', e => {
   $('#calView').hidden = S.view !== 'cal';
   $('#leaveView').hidden = S.view !== 'leave';
   $('#membersView').hidden = S.view !== 'members';
+  $('#calcView').hidden = S.view !== 'calc';
+  if (S.view === 'calc') { const f = $('#calcFrame'); if (!f.getAttribute('src')) f.src = f.dataset.src; return; } // 계산기는 팀 자료를 안 읽음
   if (S.view === 'members') loadMembers(); else if (S.view === 'leave') loadLeave(false); else load(true);
 });
 setInterval(quietLoad, 30000);
