@@ -4,7 +4,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
 <meta name="robots" content="noindex">
 <title>세무 계산기 · 더바른 세무회계</title>
-<style>*{box-sizing:border-box}body{margin:0;padding:12px;background:#F4F6F8;color:#1B2A33;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}input,select,button,textarea{font-family:inherit;font-size:16px}table{max-width:100%}.ye-sec>div:nth-child(2){display:block!important}.ye-sec>div:nth-child(2)>span:last-child{display:block;text-align:left!important;margin-top:4px}@media (max-width:600px){.ye-tax,.ye-tax thead,.ye-tax tbody{display:block}.ye-tax tr{display:grid;grid-template-columns:repeat(3,1fr)}.ye-tax th,.ye-tax td{padding:6px 8px!important}.ye-tax th:first-child,.ye-tax td:first-child{grid-column:1/-1;border-bottom:0!important;padding-bottom:0!important}.ye-tax td:not(:first-child),.ye-tax th:not(:first-child){white-space:nowrap;font-size:12.5px}}</style>
+<style>*{box-sizing:border-box}body{margin:0;padding:12px;background:#F4F6F8;color:#1B2A33;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}input,select,button,textarea{font-family:inherit;font-size:16px}table{max-width:100%}.ye-sec>div:nth-child(2){display:block!important}.ye-sec>div:nth-child(2)>span:last-child{display:block;text-align:left!important;margin-top:4px}@media (max-width:600px){.calc-res,.calc-res thead,.calc-res tbody{display:block}.calc-res tr{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;padding:7px 0;border-bottom:1px solid #EEF1F4}.calc-res th,.calc-res td{border:0!important;padding:1px 0!important;background:none}.calc-res tr>:first-child{flex:1 1 auto;min-width:0}.calc-res tr>:nth-child(2){order:9;flex:1 1 100%;font-size:12px!important;color:#6B7785;line-height:1.5}.calc-res tr>:nth-child(n+3){flex:0 0 96px;text-align:right!important;white-space:nowrap}.calc-res thead tr>:nth-child(2){display:none}.calc-res thead tr{border-bottom:1px solid #D9E1E6}}@media (max-width:600px){.ye-tax,.ye-tax thead,.ye-tax tbody{display:block}.ye-tax tr{display:grid;grid-template-columns:repeat(3,1fr)}.ye-tax th,.ye-tax td{padding:6px 8px!important}.ye-tax th:first-child,.ye-tax td:first-child{grid-column:1/-1;border-bottom:0!important;padding-bottom:0!important}.ye-tax td:not(:first-child),.ye-tax th:not(:first-child){white-space:nowrap;font-size:12.5px}}</style>
 </head><body><div id="root"></div>
 <script>/**
  * @license React
@@ -2005,6 +2005,7 @@ function PenaltyCalc() {
       marginTop: 14
     }
   }, isPay ? s.act === "late" && s.due && s.sub && s.sub <= s.due ? "기한 안에 제출해 가산세가 없습니다." : "지급금액·제출기한을 넣으면 계산합니다(근로소득 간이는 지급 연월도)." : "세액·법정기한·신고납부일(기한 뒤)을 넣으면 계산합니다.") : React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -2243,6 +2244,7 @@ function PayInsCalc() {
       marginTop: 14
     }
   }, "\uC6D4 \uCD1D\uC9C0\uAE09\uC561\uC744 \uB123\uC73C\uBA74 \uACC4\uC0B0\uD569\uB2C8\uB2E4.") : React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -2648,6 +2650,7 @@ function BizIncomeCalc() {
       marginTop: 14
     }
   }, "\uC2DC\uAE09\uACFC \uADFC\uBB34\uC2DC\uAC04\uC744 \uB123\uC73C\uBA74 \uCD1D\uAE09\uC5EC\uC561\xB7\uACF5\uC81C\uC561\xB7\uCC28\uC778\uC9C0\uAE09\uC561\uC744 \uACC4\uC0B0\uD569\uB2C8\uB2E4.") : React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -2819,6 +2822,7 @@ function NetGrossCalc() {
       marginTop: 14
     }
   }, "\uACC4\uC0B0 \uBC94\uC704\uB97C \uB118\uC5C8\uC2B5\uB2C8\uB2E4(\uC2E4\uC218\uB839\uC561\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694).") : React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -3156,6 +3160,7 @@ function JuhyuCalc() {
       border: `1px solid ${C.line}`
     }
   }, "1\uC8FC \uC18C\uC815\uADFC\uB85C\uC2DC\uAC04 ", h2(r.wh), "\uC2DC\uAC04 \u2014 \uC8FC 15\uC2DC\uAC04 \uBBF8\uB9CC\uC774\uB77C \uC8FC\uD734\uC218\uB2F9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4(\uADFC\uB85C\uAE30\uC900\uBC95 \uC81C18\uC870 \u2462, 4\uC8FC \uD3C9\uADE0 \uAE30\uC900)"), React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -3385,6 +3390,7 @@ function ProrateCalc() {
       marginTop: 14
     }
   }, "\uC6D4 \uAE09\uC5EC\uC640 \uAE30\uAC04\uC744 \uB123\uC73C\uBA74 \uACC4\uC0B0\uD569\uB2C8\uB2E4.") : React.createElement(React.Fragment, null, React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -3528,6 +3534,7 @@ function HiSettleCalc() {
       marginTop: 14
     }
   }, "\uD655\uC815 \uC0AC\uC5C5\uC18C\uB4DD\uAE08\uC561\uC744 \uB123\uC73C\uBA74 \uACC4\uC0B0\uD569\uB2C8\uB2E4.") : React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -4653,6 +4660,7 @@ function RetireCalc() {
       marginTop: 14
     }
   }, "\uC784\uAE08\uC744 \uB123\uC73C\uBA74 \uD1F4\uC9C1\uAE08\uACFC \uD1F4\uC9C1\uC18C\uB4DD\uC138\uB97C \uACC4\uC0B0\uD569\uB2C8\uB2E4."), r && r.income > 0 && !s.over && !s.ordM && box("#B45309", "#FFF8E6", React.createElement(React.Fragment, null, React.createElement("b", null, "\uD1B5\uC0C1\uC784\uAE08\uC744 \uB123\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4"), " \u2014 \uD3C9\uADE0\uC784\uAE08\uC774 \uD1B5\uC0C1\uC784\uAE08\uBCF4\uB2E4 \uC801\uC73C\uBA74 \uD1B5\uC0C1\uC784\uAE08\uC73C\uB85C \uACC4\uC0B0\uD574\uC57C \uD569\uB2C8\uB2E4(\uADFC\uAE30\uBC95 \uC81C2\uC870 \u2461). \uD734\uC9C1\xB7\uACB0\uADFC\uC774 \uC788\uC5C8\uB2E4\uBA74 \uAF2D \uD655\uC778\uD558\uC138\uC694.")), r && r.income > 0 && !s.over && r.byOrd && box(C.accent, C.accentSoft, React.createElement(React.Fragment, null, React.createElement("b", null, "\uD1B5\uC0C1\uC784\uAE08\uC73C\uB85C \uACC4\uC0B0\uD588\uC2B5\uB2C8\uB2E4"), " \u2014 1\uC77C \uD3C9\uADE0\uC784\uAE08 ", day(r.avg), "\uC774 1\uC77C \uD1B5\uC0C1\uC784\uAE08 ", day(r.ord), "\uBCF4\uB2E4 \uC801\uC2B5\uB2C8\uB2E4(\uADFC\uAE30\uBC95 \uC81C2\uC870 \u2461).")), r && r.income > 0 && React.createElement("table", {
+    className: "calc-res",
     style: {
       width: "100%",
       borderCollapse: "collapse",
