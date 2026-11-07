@@ -167,10 +167,15 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .ev:hover .del,.ev .del:focus-visible{opacity:1}
 
 /* Dialog */
-dialog{border:0;border-radius:16px;padding:0;width:min(520px,calc(100vw - 32px));background:var(--surface);color:var(--text);box-shadow:0 20px 50px rgba(0,0,0,.25)}
-dialog::backdrop{background:rgba(5,20,18,.45)}
+dialog{border:0;border-radius:14px;padding:0;width:min(520px,calc(100vw - 32px));background:var(--surface);color:var(--text);box-shadow:0 20px 50px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(15,30,45,.5)}
 .dlg{padding:20px}
 .dlg h2{margin:0 0 16px;font-size:17px}
+/* 창 모양 = 세무대시보드 공용 창 틀과 같게(2026-11-07): 머리줄(제목 + 오른쪽 위 ✕) · 아래 단추 줄 */
+.dlg-head{display:flex;align-items:center;gap:10px;margin:-20px -20px 16px;padding:14px 10px 12px 20px;border-bottom:1px solid var(--border)}
+.dlg-head h2{margin:0;flex:1;font-size:17px;font-weight:800}
+.dlg-x{border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);padding:6px 10px;border-radius:8px;cursor:pointer}
+.dlg-x:hover{background:var(--surface-2)}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .field label,.field .lbl{font-size:13px;font-weight:600;color:var(--muted)}
 .row{display:flex;gap:10px}
@@ -178,7 +183,7 @@ dialog::backdrop{background:rgba(5,20,18,.45)}
 .tsel{display:flex;gap:4px}
 .tsel .select{flex:1;min-width:0;padding:0 4px}
 @media(max-width:360px){#eTimes,#lvDates{flex-direction:column;gap:0}.view-tabs button svg{display:none}}
-.dlg-foot{display:flex;gap:8px;margin-top:6px}
+.dlg-foot{display:flex;gap:8px;margin:16px -20px -20px;padding:12px 20px;border-top:1px solid var(--border)}
 .dlg-foot .sp{flex:1}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
 .swatches label{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--sc);cursor:pointer;display:grid;place-items:center}
@@ -496,7 +501,7 @@ body.has-alert .wrap{padding-bottom:150px}
 <!-- 할 일 편집 -->
 <dialog id="taskDlg">
   <form class="dlg" method="dialog" id="taskForm">
-    <h2>할 일 수정</h2>
+    <div class="dlg-head"><h2>할 일 수정</h2><button type="button" class="dlg-x" data-close aria-label="닫기">✕</button></div>
     <p class="hint" id="tFrom" hidden></p>
     <div class="field"><label for="tTitle">제목</label><input id="tTitle" class="input" required maxlength="500"></div>
     <div class="row">
@@ -516,7 +521,7 @@ body.has-alert .wrap{padding-bottom:150px}
 <!-- 메모 편집 -->
 <dialog id="noteDlg">
   <form class="dlg" method="dialog" id="noteForm">
-    <h2 id="noteDlgTitle">새 메모</h2>
+    <div class="dlg-head"><h2 id="noteDlgTitle">새 메모</h2><button type="button" class="dlg-x" data-close aria-label="닫기">✕</button></div>
     <div class="field"><label for="nTitle">제목</label><input id="nTitle" class="input" maxlength="200"></div>
     <div class="field"><label for="nBody">내용</label><textarea id="nBody" class="textarea" rows="6" maxlength="5000"></textarea></div>
     <div class="field" id="nColorField"><span class="lbl">색상</span><div class="swatches" id="swatches"></div></div>
@@ -533,7 +538,7 @@ body.has-alert .wrap{padding-bottom:150px}
 <!-- 팀원 정보(이름·직급·구글 계정) -->
 <dialog id="memDlg">
   <form class="dlg" method="dialog" id="memForm">
-    <h2 id="memDlgTitle">팀원 정보</h2>
+    <div class="dlg-head"><h2 id="memDlgTitle">팀원 정보</h2><button type="button" class="dlg-x" data-close aria-label="닫기">✕</button></div>
     <div class="field" id="mdNameF"><label for="mdName">이름</label><input id="mdName" class="input" maxlength="20"></div>
     <p class="hint" id="mdNameHint">이름을 바꿔도 로그인 코드는 그대로이고, 업무 지시·메모 작성자도 새 이름으로 옮겨집니다. 세무대시보드의 거래처 담당 지정은 PC 세무대시보드 팀원 관리에서 바꿔야 함께 옮겨집니다.</p>
     <div class="field"><label for="mdTitle">직급</label><select id="mdTitle" class="select"></select></div>
@@ -552,7 +557,7 @@ body.has-alert .wrap{padding-bottom:150px}
 <!-- 일정 추가 -->
 <dialog id="eventDlg">
   <form class="dlg" method="dialog" id="eventForm">
-    <h2>팀 일정 추가</h2>
+    <div class="dlg-head"><h2>팀 일정 추가</h2><button type="button" class="dlg-x" data-close aria-label="닫기">✕</button></div>
     <div class="field"><label for="eTitle">제목</label><input id="eTitle" class="input" required maxlength="200"></div>
     <div class="field"><label for="eDate">날짜</label><input id="eDate" class="input" type="date" required></div>
     <label class="checkline" style="margin-bottom:14px"><input type="checkbox" id="eAll">종일</label>
@@ -572,7 +577,7 @@ body.has-alert .wrap{padding-bottom:150px}
 <!-- 휴가 신청·수정 -->
 <dialog id="leaveDlg">
   <form class="dlg" method="dialog" id="leaveForm">
-    <h2 id="lvDlgTitle">휴가 신청</h2>
+    <div class="dlg-head"><h2 id="lvDlgTitle">휴가 신청</h2><button type="button" class="dlg-x" data-close aria-label="닫기">✕</button></div>
     <div class="row">
       <div class="field"><label for="lvType">유형</label><select id="lvType" class="select"></select></div>
       <div class="field"><label for="lvKind">단위</label><select id="lvKind" class="select"></select></div>
