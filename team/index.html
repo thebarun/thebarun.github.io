@@ -1193,7 +1193,8 @@ function openTask(id){
 }
 $('#taskForm').addEventListener('submit', e => {
   e.preventDefault();
-  const t = { title: $('#tTitle').value.trim(), assignee: editingTask.team ? $('#tWho').value : '', due: $('#tDue').value, notes: $('#tNotes').value };
+  const t = { title: $('#tTitle').value.trim(), assignee: editingTask.team ? $('#tWho').value : '', due: $('#tDue').value, notes: $('#tNotes').value,
+    seen: { title: editingTask.title, assignee: editingTask.assignee || '', due: editingTask.due || '', notes: editingTask.notes || '' } }; // 연 때 내용 — 그사이 남이 고쳤으면 서버가 막음
   if (!t.title) return;
   $('#taskDlg').close();
   enqueue('updateTask', [editingTask.id, t, editingTask.listId], '할 일 수정: ' + t.title);
@@ -1267,7 +1268,8 @@ $('#noteForm').addEventListener('submit', e => {
     enqueue('saveMyMemos', [[m]], '개인 메모: ' + (title || '(제목 없음)'));
   } else {
     const n = { id: editingNote ? editingNote.id : '', title: title, body: body,
-      color: (document.querySelector('input[name=nColor]:checked') || {}).value || 'default', pinned: $('#nPin').checked, author: S.me };
+      color: (document.querySelector('input[name=nColor]:checked') || {}).value || 'default', pinned: $('#nPin').checked, author: S.me,
+      seen: editingNote ? { title: editingNote.title, body: editingNote.body } : null }; // 연 때 내용 — 그사이 남이 고쳤으면 서버가 '[사본]'으로 둘 다 남김
     enqueue('saveNote', [n], '메모: ' + (title || '(제목 없음)'));
   }
   toast('메모를 저장했습니다');
