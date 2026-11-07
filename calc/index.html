@@ -1104,7 +1104,7 @@ const TAXCALC = {
       });
     let juDays = 0;
     for (let d = d1; d <= d2; d++) if (dow(d) === 0 && d - 2 >= d1 && mw.ju > 0) juDays++;
-    const dayH = Math.max(0, Math.min(52, +weekH || 0)) / 5,
+    const dayH = Math.max(0, Math.min(40, +weekH || 0)) / 5,
       hours = Math.round((wIn * dayH + juDays * mw.ju) * 100) / 100;
     const need = Math.ceil(Math.round(mw.minHour * hours * 100) / 100);
     const chk = (a, b) => {
@@ -3333,7 +3333,7 @@ function ProrateCalc() {
     }
   })), React.createElement(CalcField, {
     label: "\uADFC\uBB34 \uB9C8\uC9C0\uB9C9 \uB0A0",
-    hint: "\uD1F4\uC0AC\uC77C \uB610\uB294 \uADF8 \uB2EC \uB9D0\uC77C \u2014 \uAC19\uC740 \uB2EC \uC548"
+    hint: "\uADFC\uB85C\uAD00\uACC4 \uB9C8\uC9C0\uB9C9 \uB0A0(\uD1F4\uC0AC \uC8FC \uC8FC\uD734\uB294 \uC774 \uB0A0\uB85C \uD310\uC815 \u2014 \uC77C\uC694\uC77C\uAE4C\uC9C0 \uADFC\uB85C\uAD00\uACC4\uAC00 \uC788\uC73C\uBA74 \uC77C\uC694\uC77C) \uB610\uB294 \uADF8 \uB2EC \uB9D0\uC77C, \uAC19\uC740 \uB2EC \uC548"
   }, React.createElement("input", {
     type: "date",
     value: s.to,
@@ -3350,7 +3350,7 @@ function ProrateCalc() {
     set: up("excl")
   })), React.createElement(CalcField, {
     label: "1\uC8FC \uC18C\uC815\uADFC\uB85C\uC2DC\uAC04",
-    hint: "\uCD5C\uC800\uC784\uAE08 \uC810\uAC80\uC6A9 \u2014 \uC8FC 5\uC77C \uAC00\uC815, \uC8FC 40\uC2DC\uAC04\uC774\uBA74 \uD558\uB8E8 8\uC2DC\uAC04"
+    hint: "\uCD5C\uC800\uC784\uAE08 \uC810\uAC80\uC6A9 \u2014 \uC8FC 5\uC77C \uAC00\uC815, \uC8FC 40\uC2DC\uAC04\uC774\uBA74 \uD558\uB8E8 8\uC2DC\uAC04(40\uC2DC\uAC04 \uB118\uB294 \uBD80\uBD84\uC740 \uC5F0\uC7A5\uADFC\uB85C\uB77C 40\uC73C\uB85C \uACC4\uC0B0)"
   }, React.createElement("input", {
     type: "number",
     min: "0",
