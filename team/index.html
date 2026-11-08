@@ -221,6 +221,7 @@ dialog::backdrop{background:rgba(15,30,45,.5)}
 .alert-bar li b{color:var(--text);font-weight:600}
 .alert-bar .alert-acts{display:flex;flex-direction:column;gap:6px;flex:none}
 body.has-alert .wrap{padding-bottom:150px}
+.task-meta .rd.ok{color:#15803D;font-weight:700}.task-meta .rd.no{color:var(--danger);font-weight:800}
 .new-badge{font-size:11px;font-weight:800;letter-spacing:.04em;padding:1px 6px;border-radius:999px;background:var(--danger);color:#fff;margin-right:6px;vertical-align:2px}
 .task.is-new{background:var(--primary-soft)}
 .task.leaving{opacity:.35;transition:opacity .25s ease}
@@ -630,8 +631,8 @@ body.has-alert .wrap{padding-bottom:150px}
   <div class="alert-ic"><svg class="i"><use href="#i-alert"/></svg></div>
   <div class="alert-body"><strong id="alertTitle"></strong><ul id="alertList"></ul></div>
   <div class="alert-acts">
-    <button class="btn sm primary" id="alertGo">확인하기</button>
-    <button class="btn sm ghost" id="alertClose">닫기</button>
+    <button class="btn sm primary" id="alertGo">읽음 확인</button>
+    <button class="btn sm ghost" id="alertClose">나중에</button>
   </div>
 </div>
 </div>
@@ -860,6 +861,7 @@ function taskItem(x){
   if (!x.done && ST_LABEL[x.status]) meta.push('<span class="stchip ' + (x.status === '검토대기' ? 'rv' : 'pg') + '">' + ST_LABEL[x.status] + '</span>');
   const talk = (x.comments || []).filter(c => c.kind !== 'sys').length;
   if (talk) meta.push('<span>💬 ' + talk + '</span>');
+  if (readTracked(x) && x.assignee !== S.me && (!x.done || x.readAt)) meta.push(x.readAt ? '<span class="rd ok">👁 읽음 ' + rdTime(x.readAt) + '</span>' : '<span class="rd no">안 읽음</span>');
   if (x.notes) meta.push('<span class="note">' + esc(x.notes.split('\n')[0]) + '</span>');
   const isNew = S.newIds.indexOf(x.id) >= 0;
   const o = x._op && opOf(x._op);
@@ -1019,7 +1021,7 @@ const setTasks = r => { S.tasks = r; redrawTasks(); };
 // 대기열은 기기에 저장되어 창을 닫아도 다음에 열 때 이어서 저장한다. 같은 요청은 서버가 두 번 실행하지 않는다(opId).
 const OUT = 'tdb.outbox.' + BOOT.key;
 const RETRY_MS = [2000, 5000, 15000, 30000, 60000];
-const KIND = { addTask: 'tasks', updateTask: 'tasks', setTaskDone: 'tasks', deleteTask: 'tasks', setTaskStatus: 'tasks', addTaskComment: 'tasks', saveNote: 'notes', deleteNote: 'notes', saveMyMemos: 'mymemos', deleteMyMemo: 'mymemos', addEvent: 'events', deleteEvent: 'events' };
+const KIND = { addTask: 'tasks', updateTask: 'tasks', setTaskDone: 'tasks', deleteTask: 'tasks', setTaskStatus: 'tasks', addTaskComment: 'tasks', markTaskRead: 'tasks', saveNote: 'notes', deleteNote: 'notes', saveMyMemos: 'mymemos', deleteMyMemo: 'mymemos', addEvent: 'events', deleteEvent: 'events' };
 let outbox = (() => { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } })();
 const saveOut = () => { try { localStorage.setItem(OUT, JSON.stringify(outbox)); } catch (e) {} };
 const activeOps = () => outbox.filter(o => !o.failed).length;
@@ -1069,6 +1071,8 @@ function overlay(op){
   } else if (op.fn === 'addTaskComment') {
     const x = S.tasks.find(x => x.id === a[0]); if (!x) return;
     if (!(x.comments || []).some(c => c.id === tag)) x.comments = (x.comments || []).concat([{ id: tag, at: Date.now(), who: S.me, text: a[1], kind: '' }]);
+  } else if (op.fn === 'markTaskRead') { // 업무 지시 읽음(2026-11-08)
+    (a[0] || []).forEach(id => { const x = S.tasks.find(t => t.id === id); if (x && !x.readAt) x.readAt = Date.now(); });
   } else if (op.fn === 'deleteTask') {
     S.tasks = S.tasks.filter(x => x.id !== a[0]);
   } else if (op.fn === 'saveNote') {
@@ -1264,7 +1268,8 @@ function openTask(id){
   $('#tWho').disabled = !boss;
   $('#tDel').hidden = x.team && !boss;
   $('#tFrom').hidden = !(x.team && x.requester);
-  $('#tFrom').textContent = x.requester ? '지시: ' + x.requester + ' → 담당: ' + x.assignee : '';
+  $('#tFrom').textContent = x.requester ? '지시: ' + x.requester + ' → 담당: ' + x.assignee + (readTracked(x) && x.assignee !== S.me ? (x.readAt ? ' · 👁 읽음 ' + rdTime(x.readAt) : ' · 안 읽음') : '') : '';
+  if (unreadMine(x)) markRead([x]); // 받은 사람이 업무 창을 열면 읽음(2026-11-08)
   $('#tThread').innerHTML = ''; renderThread();
   $('#taskDlg').showModal();
 }
@@ -1395,21 +1400,22 @@ const quietLoad = () => {
 };
 
 // ───── 새 업무 지시 알림 ─────
-// 다른 사람이 나에게 지시한 진행 중 업무 중 이 기기에서 아직 안 본 것. 본 목록은 기기에 저장
-const SEEN = 'tdb.seen.' + BOOT.key;
-let seen = (() => { try { return JSON.parse(localStorage.getItem(SEEN) || '[]'); } catch (e) { return []; } })();
-const saveSeen = () => { try { localStorage.setItem(SEEN, JSON.stringify(seen)); } catch (e) {} };
-const incoming = () => S.tasks.filter(x => x.team && !x.done && x.assignee === S.me && x.requester && x.requester !== S.me);
+// 2026-11-08 대표님 요청 '알림창 + 읽음': 다른 사람이 나에게 지시했고 아직 안 읽은 업무(서버 readAt — PC·휴대폰 같이). [읽음 확인] → 서버에 읽음 기록,
+// 지시한 사람 화면에 '👁 읽음 시각'. [나중에] = 이 화면을 새로 열 때까지 안 띄움. 이 기능 전에 마지막으로 바뀐 업무는 기록이 없어 알림·'안 읽음'을 안 띄움
+const READ_FROM = Date.parse('2026-11-08T00:00:00+09:00');
+const readTracked = x => !!(x.team && x.requester && x.assignee && x.requester !== x.assignee && !isTmp(x.id) && (x.readAt || Date.parse(x.updated || '') >= READ_FROM));
+const unreadMine = x => readTracked(x) && !x.done && !x.readAt && x.assignee === S.me;
+const rdTime = ms => { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+let later = [];
 function checkNew(){
-  S.fresh = incoming().filter(x => seen.indexOf(x.id) < 0);
+  S.fresh = S.tasks.filter(x => unreadMine(x) && later.indexOf(x.id) < 0);
   renderAlert();
 }
-function markSeen(){
-  // 지금 있는 업무만 남겨서 저장 목록이 계속 커지지 않게
-  seen = seen.filter(id => S.tasks.some(t => t.id === id)).concat(S.fresh.map(x => x.id));
-  saveSeen();
-  S.fresh = []; renderAlert();
+function markRead(list){
+  const ids = list.filter(unreadMine).map(x => x.id);
+  if (ids.length) enqueue('markTaskRead', [ids], '읽음: ' + (ids.length === 1 ? list.find(x => x.id === ids[0]).title : ids.length + '건'));
 }
+function markSeen(){ markRead(S.fresh); S.fresh = []; renderAlert(); }
 function renderAlert(){
   const n = S.fresh.length;
   $('#alertBar').hidden = !n || !$('#loginView').hidden;
@@ -1430,7 +1436,7 @@ $('#alertGo').addEventListener('click', () => {
   renderSpace(); renderStats(); renderChips(); renderTasks();
   $('.space-tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
-$('#alertClose').addEventListener('click', markSeen);
+$('#alertClose').addEventListener('click', () => { later = later.concat(S.fresh.map(x => x.id)); S.fresh = []; renderAlert(); });
 
 // ───── 로그인 ─────
 function showLogin(){
@@ -1831,7 +1837,7 @@ function initMock(){
       { id:'t7', title:'홈택스 수임동의 요청', assignee:'이회계', due:d(2), notes:'', done:false, completed:'' },
       { id:'p1', title:'세무사회 연수 신청', assignee:'', due:d(1), notes:'', done:false, completed:'', listId:'L2' },
       { id:'p2', title:'거래처 명절 선물 목록 정리', assignee:'', due:'', notes:'', done:false, completed:'', listId:'L2' }
-    ].map(x => Object.assign({ listId:'', team:!x.listId, listTitle: x.listId ? '내 할 일' : '팀 공유', requester: x.listId ? '' : (x.assignee === '대표' ? '김세무' : '대표') }, x)),
+    ].map(x => Object.assign({ listId:'', team:!x.listId, listTitle: x.listId ? '내 할 일' : '팀 공유', requester: x.listId ? '' : (x.assignee === '대표' ? '김세무' : '대표'), updated: new Date().toISOString() }, x)), // updated = 읽음 기능 시험용(2026-11-08)
     notes: [
       { id:'n1', title:'10월 신고 일정', body:'10/25 부가세 예정\n10/10 원천세 완료\n10/31 증권거래세', color:'yellow', pinned:true, author:'대표', updated:Date.now() - 3600000 },
       { id:'n2', title:'거래처 연락처 변경', body:'(주)한빛상사 담당자 변경: 김과장 → 이대리', color:'blue', pinned:false, author:'이회계', updated:Date.now() - 86400000 },
@@ -1884,6 +1890,7 @@ function initMock(){
     setTaskDone: (id, done) => { const x = db.tasks.find(t => t.id === id); x.done = done; x.completed = done ? new Date().toISOString() : ''; x.status = ''; return db.tasks; },
     setTaskStatus: (id, st, listId, msg) => { const x = db.tasks.find(t => t.id === id); x.status = st; x.done = false; x.comments = (x.comments || []).concat([{ id: 'c' + (++seq), at: Date.now(), who: '대표', text: (st === '검토대기' ? '검토 요청' : '다시 요청') + (msg ? ' — ' + msg : ''), kind: 'sys' }]); return db.tasks; },
     addTaskComment: (id, text) => { const x = db.tasks.find(t => t.id === id); x.comments = (x.comments || []).concat([{ id: 'c' + (++seq), at: Date.now(), who: '대표', text: text, kind: '' }]); return db.tasks; },
+    markTaskRead: ids => { ids.forEach(id => { const x = db.tasks.find(t => t.id === id); if (x && !x.readAt) x.readAt = Date.now(); }); return db.tasks; },
     deleteTask: id => { db.tasks = db.tasks.filter(x => x.id !== id); return db.tasks; },
     saveNote: n => { const x = db.notes.find(o => o.id === n.id); const v = Object.assign({}, n, { updated: Date.now() }); if (x) Object.assign(x, v); else db.notes.push(Object.assign(v, { id:'n' + (++seq) })); return db.notes; },
     deleteNote: id => { db.notes = db.notes.filter(x => x.id !== id); return db.notes; },
