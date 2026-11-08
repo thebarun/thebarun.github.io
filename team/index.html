@@ -307,6 +307,7 @@ body.has-alert .wrap{padding-bottom:150px}
 .md-acts:empty{display:none}
 .member .ttl{font-size:12.5px;font-weight:600;color:var(--muted)}
 .tag.off{background:var(--border);color:var(--muted)}
+.tag.team{background:#EEF2FF;color:#4338CA}
 .al-table{text-align:left}.al-table th,.al-table td{text-align:left}.al-table th:last-child,.al-table td.r{text-align:right}
 .btn.sm{height:34px;padding:0 10px;font-size:13px}
 .tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--primary-soft);color:var(--primary)}
@@ -559,6 +560,7 @@ body.has-alert .wrap{padding-bottom:150px}
     <div class="field" id="mdNameF"><label for="mdName">이름</label><input id="mdName" class="input" maxlength="20"></div>
     <p class="hint" id="mdNameHint">이름을 바꿔도 로그인 코드는 그대로이고, 업무 지시·메모 작성자도 새 이름으로 옮겨집니다. 세무대시보드의 거래처 담당 지정은 PC 세무대시보드 팀원 관리에서 바꿔야 함께 옮겨집니다.</p>
     <div class="field"><label for="mdTitle">직급</label><select id="mdTitle" class="select"></select></div>
+    <div class="field" id="mdTeamF"><label for="mdTeam">소속 팀</label><select id="mdTeam" class="select"></select></div>
     <div class="field" id="mdRoleF"><label for="mdRole">역할</label><select id="mdRole" class="select"><option value="team">팀원</option><option value="manager">관리자</option></select></div>
     <div class="field" id="mdMailF"><label for="mdMail">구글 계정</label><input id="mdMail" class="input" type="email" placeholder="구글 메일 주소" maxlength="254" autocomplete="off"></div>
     <p class="hint" id="mdMailHint">웹판(dash.thebaruntax.kr)에 이 구글 계정으로 로그인하면 로그인 코드 없이 이 사람으로 연결됩니다. 비우면 연결을 풉니다.</p>
@@ -1479,7 +1481,7 @@ function renderMembers(){
     const locked = !owner && m.role === 'manager'; // 다른 관리자는 대표만 바꿀 수 있음
     const me = m.name === M.me;
     return '<li class="member">' +
-    '<span class="nm">' + av(m.name) + '<span class="mn">' + esc(m.name) + '</span>' + (m.title ? ' <span class="ttl">' + esc(m.title) + '</span>' : '') + ' ' + roleTag(admin ? 'admin' : m.role) + (me ? ' <span class="tag">나</span>' : '') +
+    '<span class="nm">' + av(m.name) + '<span class="mn">' + esc(m.name) + '</span>' + (m.title ? ' <span class="ttl">' + esc(m.title) + '</span>' : '') + ' ' + roleTag(admin ? 'admin' : m.role) + (m.team ? ' <span class="tag team">' + esc(m.team) + '</span>' : '') + (me ? ' <span class="tag">나</span>' : '') +
       ' <span class="tag' + (m.email ? '' : ' off') + '" title="' + esc(m.email || '웹판 자동 로그인에 쓸 구글 계정이 아직 없습니다') + '">' + (m.email ? '구글 연결' : '구글 미연결') + '</span></span>' +
     '<span class="acts">' +
       (locked ? '' : '<button class="btn sm" data-act="edit" data-name="' + esc(m.name) + '">수정</button>') + // 역할·보내기·새 링크·삭제는 수정 창 안(2026-11-06)
@@ -1534,6 +1536,8 @@ function openMemEdit(m, admin){
   $('#memDlgTitle').textContent = m.name + ' 정보';
   $('#mdNameF').hidden = $('#mdNameHint').hidden = admin; $('#mdName').value = m.name;
   $('#mdTitle').innerHTML = Array.from(new Set(['', ...TITLE_LIST, m.title || ''])).map(x => '<option value="' + esc(x) + '"' + (x === (m.title || '') ? ' selected' : '') + '>' + esc(x || '직급 선택') + '</option>').join('');
+  $('#mdTeamF').hidden = !Array.isArray(M.teams); // 조직도(2026-11-08, PC 팀원 관리와 같은 팀 목록)
+  $('#mdTeam').innerHTML = ['', ...(M.teams || [])].map(x => '<option value="' + esc(x) + '"' + (x === (m.team || '') ? ' selected' : '') + '>' + esc(x || '미배정') + '</option>').join('');
   $('#mdMailF').hidden = $('#mdMailHint').hidden = !mailOk; $('#mdMail').value = m.email || '';
   $('#mdRoleF').hidden = admin || M.myRole !== 'admin'; $('#mdRole').value = m.role === 'manager' ? 'manager' : 'team'; // 역할 지정은 대표만(예전 줄 칸과 같음)
   $('#mdActs').innerHTML = admin ? '' : (navigator.share && m.link ? '<button type="button" class="btn sm" data-mact="share">' + icon('ext') + '보내기</button>' : '') +
@@ -1550,6 +1554,8 @@ $('#memForm').addEventListener('submit', async e => {
   if (!nn) { toast('이름을 입력하세요'); return; }
   const steps = []; // 직급·계정을 옛 이름으로 먼저, 이름 변경은 맨 끝
   if (title !== (m.title || '')) steps.push(['setTitle', m.name, title]);
+  const team = $('#mdTeam').value;
+  if (!$('#mdTeamF').hidden && team !== (m.team || '')) steps.push(['setTeam', m.name, team]);
   const role = $('#mdRole').value;
   if (!$('#mdRoleF').hidden && role !== (m.role === 'manager' ? 'manager' : 'team')) {
     if (!confirm(m.name + '님을 ' + (role === 'manager' ? '관리자로 지정' : '팀원으로 변경') + '할까요?\n관리자는 모든 업무 지시를 보고 팀원을 추가·삭제할 수 있습니다.')) return;
@@ -1866,8 +1872,8 @@ function initMock(){
   const leaveView = () => ({ me:BOOT.me, boss:CAN_MANAGE, members: CAN_MANAGE ? MEMBERS : [BOOT.me], days: lv.days, hire: lv.hire, carry: lv.carry, list: lv.list.filter(x => CAN_MANAGE || x.name === BOOT.me) });
   const URL = 'https://script.google.com/macros/s/데모/exec?key=';
   const mem = {}; MEMBERS.slice(1).forEach((n, i) => { mem[n] = 'demo' + i; });
-  const roles = {}, titles = {}, mails = {};
-  const memList = () => ({ me: MEMBERS[0], myRole: 'admin', admin: { name: MEMBERS[0], role: 'admin', title: titles[MEMBERS[0]] || '', email: mails[MEMBERS[0]] || '', link: URL + 'admin' }, members: Object.keys(mem).map(n => ({ name: n, role: roles[n] || 'team', title: titles[n] || '', email: mails[n] || '', link: URL + mem[n] })), max: 5 });
+  const roles = {}, titles = {}, mails = {}, teamOf = {};
+  const memList = () => ({ me: MEMBERS[0], myRole: 'admin', admin: { name: MEMBERS[0], role: 'admin', title: titles[MEMBERS[0]] || '', email: mails[MEMBERS[0]] || '', team: teamOf[MEMBERS[0]] || '', link: URL + 'admin' }, members: Object.keys(mem).map(n => ({ name: n, role: roles[n] || 'team', title: titles[n] || '', email: mails[n] || '', team: teamOf[n] || '', link: URL + mem[n] })), teams: ['1팀', '2팀', '3팀'], max: 5 });
   const syncMembers = () => { MEMBERS = [MEMBERS[0]].concat(Object.keys(mem)); return memList(); };
   MOCK = {
     login: pin => { if (pin !== '0000') throw new Error('비밀번호가 맞지 않습니다. (데모 비밀번호 0000)'); return 'demo-token'; },
@@ -1877,6 +1883,7 @@ function initMock(){
     removeMember: n => { delete mem[n]; return syncMembers(); },
     resetMemberLink: n => { mem[n] = 'demo' + (++seq); return memList(); },
     setTitle: (n, t) => { if (t) titles[n] = t; else delete titles[n]; return memList(); },
+    setTeam: (n, t) => { if (t) teamOf[n] = t; else delete teamOf[n]; return memList(); },
     setMemberEmail: (n, e) => { Object.keys(mails).forEach(k => { if (mails[k] === e) delete mails[k]; }); if (e) mails[n] = e; else delete mails[n]; return memList(); },
     renameMember: (o, n) => { if (mem[n] || n === MEMBERS[0]) throw new Error('이미 있는 이름입니다.'); const k = {}; Object.keys(mem).forEach(x => { k[x === o ? n : x] = mem[x]; }); Object.keys(mem).forEach(x => delete mem[x]); Object.assign(mem, k); [roles, titles, mails].forEach(m => { if (o in m) { m[n] = m[o]; delete m[o]; } }); return syncMembers(); },
     getAccessLog: () => [{ t: Date.now() - 3600000, name: MEMBERS[1], role: 'team', via: '휴대폰', what: '코드 로그인' }, { t: Date.now() - 86400000, name: MEMBERS[0], role: 'admin', via: '웹판 구글', what: '구글 자동 로그인' }],
