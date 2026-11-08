@@ -185,6 +185,18 @@ dialog::backdrop{background:rgba(15,30,45,.5)}
 @media(max-width:360px){#eTimes,#lvDates{flex-direction:column;gap:0}.view-tabs button svg{display:none}}
 .dlg-foot{display:flex;gap:8px;margin:16px -20px -20px;padding:12px 20px;border-top:1px solid var(--border)}
 .dlg-foot .sp{flex:1}
+/* 업무 상태·댓글(2026-11-08 — 세무대시보드와 같은 규칙: 지시받은 업무는 완료 대신 검토 요청, 완료는 지시자·대표) */
+.stchip{font-size:12px;font-weight:800;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.stchip.rv{color:#B45309;background:#FFF4E5}.stchip.pg{color:#0E7490;background:#E6F4F7}
+.tthread{border-top:1px solid var(--border);margin-top:14px;padding-top:12px}
+.tst{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:13px}
+.tst .sp{flex:1}
+.tcm{background:var(--surface-2);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+.tcm.me{background:var(--accent-soft)}
+.tcm .w{font-size:12px;color:var(--muted);margin-bottom:2px}
+.tsys{font-size:12px;color:var(--muted);margin-bottom:4px}
+.tsend{display:flex;gap:6px;align-items:flex-end;margin-top:6px}
+.tsend textarea{flex:1;min-height:44px}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
 .swatches label{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--sc);cursor:pointer;display:grid;place-items:center}
 .swatches input{position:absolute;opacity:0;pointer-events:none}
@@ -512,6 +524,7 @@ body.has-alert .wrap{padding-bottom:150px}
       <div class="field"><label for="tDue">마감일</label><input id="tDue" class="input" type="date"></div>
     </div>
     <div class="field"><label for="tNotes">메모</label><textarea id="tNotes" class="textarea" maxlength="8000"></textarea></div>
+    <div class="tthread" id="tThread"></div>
     <div class="dlg-foot">
       <button type="button" class="btn danger" id="tDel"><svg class="i"><use href="#i-trash"/></svg>삭제</button>
       <span class="sp"></span>
@@ -844,11 +857,14 @@ function taskItem(x){
       '<span class="who">' + av(x.assignee) + esc(x.assignee) + (x.assignee === S.me ? ' (나)' : '') + '</span>');
   }
   if (x.due) meta.push('<span class="due ' + dueCls + '">' + esc(dueLabel(x.due)) + '</span>');
+  if (!x.done && ST_LABEL[x.status]) meta.push('<span class="stchip ' + (x.status === '검토대기' ? 'rv' : 'pg') + '">' + ST_LABEL[x.status] + '</span>');
+  const talk = (x.comments || []).filter(c => c.kind !== 'sys').length;
+  if (talk) meta.push('<span>💬 ' + talk + '</span>');
   if (x.notes) meta.push('<span class="note">' + esc(x.notes.split('\n')[0]) + '</span>');
   const isNew = S.newIds.indexOf(x.id) >= 0;
   const o = x._op && opOf(x._op);
   return '<li class="task' + (x.done ? ' done' : '') + (isNew ? ' is-new' : '') + (o && !o.failed ? ' saving' : '') + '">' +
-    '<button class="check" data-toggle="' + esc(x.id) + '" aria-label="' + (x.done ? '완료 취소: ' : '완료 처리: ') + esc(x.title) + '">' + icon('check') + '</button>' +
+    '<button class="check" data-toggle="' + esc(x.id) + '" aria-label="' + (x.done ? '완료 취소: ' : needsReview(x) ? '검토 요청: ' : '완료 처리: ') + esc(x.title) + '">' + icon('check') + '</button>' +
     '<div class="task-body" data-edit="' + esc(x.id) + '" role="button" tabindex="0">' +
       '<div class="task-title">' + (isNew ? '<span class="new-badge">NEW</span>' : '') + esc(x.title) + saveFlag(x) + '</div>' +
       (meta.length ? '<div class="task-meta">' + meta.join('') + '</div>' : '') +
@@ -856,6 +872,7 @@ function taskItem(x){
 }
 
 function renderTasks(){
+  if ($('#taskDlg').open) renderThread();
   const box = $('#taskList');
   const q = S.space === 'mine' && S.quick && QUICK[S.quick];
   $('#quickNote').hidden = !q;
@@ -1002,7 +1019,7 @@ const setTasks = r => { S.tasks = r; redrawTasks(); };
 // 대기열은 기기에 저장되어 창을 닫아도 다음에 열 때 이어서 저장한다. 같은 요청은 서버가 두 번 실행하지 않는다(opId).
 const OUT = 'tdb.outbox.' + BOOT.key;
 const RETRY_MS = [2000, 5000, 15000, 30000, 60000];
-const KIND = { addTask: 'tasks', updateTask: 'tasks', setTaskDone: 'tasks', deleteTask: 'tasks', saveNote: 'notes', deleteNote: 'notes', saveMyMemos: 'mymemos', deleteMyMemo: 'mymemos', addEvent: 'events', deleteEvent: 'events' };
+const KIND = { addTask: 'tasks', updateTask: 'tasks', setTaskDone: 'tasks', deleteTask: 'tasks', setTaskStatus: 'tasks', addTaskComment: 'tasks', saveNote: 'notes', deleteNote: 'notes', saveMyMemos: 'mymemos', deleteMyMemo: 'mymemos', addEvent: 'events', deleteEvent: 'events' };
 let outbox = (() => { try { return JSON.parse(localStorage.getItem(OUT) || '[]'); } catch (e) { return []; } })();
 const saveOut = () => { try { localStorage.setItem(OUT, JSON.stringify(outbox)); } catch (e) {} };
 const activeOps = () => outbox.filter(o => !o.failed).length;
@@ -1043,8 +1060,15 @@ function overlay(op){
     Object.assign(x, { title: a[1].title, due: a[1].due, notes: a[1].notes, _op: op.opId }, x.team && a[1].assignee ? { assignee: a[1].assignee } : {});
   } else if (op.fn === 'setTaskDone') {
     const x = S.tasks.find(x => x.id === a[0]); if (!x) return;
-    if (x.done !== a[1]) { x.done = a[1]; x.completed = a[1] ? new Date().toISOString() : ''; }
+    if (x.done !== a[1]) { x.done = a[1]; x.completed = a[1] ? new Date().toISOString() : ''; x.status = ''; }
     x._op = op.opId;
+  } else if (op.fn === 'setTaskStatus') {
+    const x = S.tasks.find(x => x.id === a[0]); if (!x) return;
+    x.status = a[1]; if (x.done) { x.done = false; x.completed = ''; }
+    x._op = op.opId;
+  } else if (op.fn === 'addTaskComment') {
+    const x = S.tasks.find(x => x.id === a[0]); if (!x) return;
+    if (!(x.comments || []).some(c => c.id === tag)) x.comments = (x.comments || []).concat([{ id: tag, at: Date.now(), who: S.me, text: a[1], kind: '' }]);
   } else if (op.fn === 'deleteTask') {
     S.tasks = S.tasks.filter(x => x.id !== a[0]);
   } else if (op.fn === 'saveNote') {
@@ -1166,6 +1190,12 @@ $('#taskList').addEventListener('click', e => {
     if (isTmp(x.id)) { toast('아직 저장되지 않은 항목입니다. 저장이 끝난 뒤 다시 눌러 주세요'); return; }
     S.newIds = S.newIds.filter(id => id !== x.id);
     const done = !x.done;
+    if (done && needsReview(x)) { // 지시받은 업무: 완료 대신 검토 요청
+      if (x.status === '검토대기') { toast('이미 검토를 요청했습니다 — 지시한 사람이 확인하면 완료됩니다'); return; }
+      enqueue('setTaskStatus', [x.id, '검토대기', x.listId, ''], '검토 요청: ' + x.title);
+      toast('검토를 요청했습니다 — 지시한 사람이 확인하면 완료됩니다');
+      return;
+    }
     tg.closest('.task').classList.add('leaving');
     toast(done ? '완료했습니다' : '다시 진행 중으로 옮겼습니다');
     enqueue('setTaskDone', [x.id, done, x.listId], (done ? '완료: ' : '완료 취소: ') + x.title, true);
@@ -1180,6 +1210,49 @@ $('#taskList').addEventListener('keydown', e => {
   if (ed && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openTask(ed.dataset.edit); }
 });
 
+// 업무 상태·댓글(2026-11-08)
+const ST_LABEL = { 진행: '⏳ 진행 중', 검토대기: '🟠 검토 대기' };
+const needsReview = x => !!(x.team && x.requester && x.requester !== S.me && !CAN_MANAGE);
+const tmTime = ms => { const d = new Date(ms); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+function renderThread(){
+  const el = $('#tThread');
+  const x = editingTask && S.tasks.find(t => t.id === editingTask.id);
+  if (!x) { el.innerHTML = ''; return; }
+  const judge = CAN_MANAGE || x.requester === S.me || !x.team || !x.requester;
+  const keep = ($('#tMsg') || {}).value || '';
+  const btn = [];
+  if (!x.done && !x.status) btn.push('<button type="button" class="btn sm" data-st="진행">⏳ 진행 중으로</button>');
+  if (!x.done && x.status !== '검토대기' && needsReview(x)) btn.push('<button type="button" class="btn sm primary" data-st="검토대기">🟠 검토 요청</button>');
+  if (!x.done && x.status === '검토대기' && judge) btn.push('<button type="button" class="btn sm" data-st="진행">↩ 다시 요청</button><button type="button" class="btn sm primary" data-tdone>✓ 검토 완료</button>');
+  const list = (x.comments || []).slice().sort((a, b) => a.at - b.at);
+  el.innerHTML = '<div class="tst"><b>상태</b><span class="stchip ' + (x.status === '검토대기' ? 'rv' : 'pg') + '">' + (x.done ? '✓ 완료' : ST_LABEL[x.status] || '할 일') + '</span><span class="sp"></span>' + btn.join('') + '</div>' +
+    '<div class="tsys" style="font-weight:800">💬 댓글</div>' +
+    (list.length ? list.map(c => c.kind === 'sys'
+      ? '<div class="tsys">· ' + esc(c.who) + ' ' + esc(c.text) + ' ' + tmTime(c.at) + '</div>'
+      : '<div class="tcm' + (c.who === S.me ? ' me' : '') + '"><div class="w"><b>' + esc(c.who) + '</b> · ' + tmTime(c.at) + (isTmp(c.id) ? ' · 저장 중' : '') + '</div>' + esc(c.text) + '</div>').join('')
+      : '<div class="tsys">아직 댓글이 없습니다.</div>') +
+    '<div class="tsend"><textarea id="tMsg" class="textarea" maxlength="2000" placeholder="댓글 · 다시 요청 이유" aria-label="댓글"></textarea><button type="button" class="btn sm primary" data-send>댓글 달기</button></div>';
+  $('#tMsg').value = keep;
+}
+$('#tThread').addEventListener('click', e => {
+  const x = editingTask && S.tasks.find(t => t.id === editingTask.id); if (!x) return;
+  const msg = ($('#tMsg').value || '').trim();
+  const st = e.target.closest('[data-st]');
+  if (st) {
+    const s = st.dataset.st, label = s === '검토대기' ? '검토 요청' : x.status === '검토대기' ? '다시 요청' : '진행 중';
+    $('#tMsg').value = '';
+    enqueue('setTaskStatus', [x.id, s, x.listId, msg], label + ': ' + x.title);
+    toast(label + ' 했습니다'); renderThread(); return;
+  }
+  if (e.target.closest('[data-tdone]')) { enqueue('setTaskDone', [x.id, true, x.listId], '완료: ' + x.title); toast('완료했습니다'); renderThread(); return; }
+  if (e.target.closest('[data-send]')) {
+    if (!msg) return;
+    $('#tMsg').value = '';
+    enqueue('addTaskComment', [x.id, msg, x.listId], '댓글: ' + x.title);
+    renderThread();
+  }
+});
+
 let editingTask = null;
 function openTask(id){
   const x = S.tasks.find(t => t.id === id); if (!x) return;
@@ -1192,6 +1265,7 @@ function openTask(id){
   $('#tDel').hidden = x.team && !boss;
   $('#tFrom').hidden = !(x.team && x.requester);
   $('#tFrom').textContent = x.requester ? '지시: ' + x.requester + ' → 담당: ' + x.assignee : '';
+  $('#tThread').innerHTML = ''; renderThread();
   $('#taskDlg').showModal();
 }
 $('#taskForm').addEventListener('submit', e => {
@@ -1807,7 +1881,9 @@ function initMock(){
     getDashboard: () => ({ members: MEMBERS, tasks: db.tasks, notes: db.notes, events: db.events, lists: [{ id:'L1', title:'팀 공유', team:true }, { id:'L2', title:'내 할 일', team:false }] }),
     addTask: (t, listId) => { (listId ? [''] : t.assignees).forEach(a => db.tasks.unshift({ id:'t' + (++seq), title:t.title, assignee:a, requester: listId ? '' : '대표', due:t.due, notes:t.notes, done:false, completed:'', listId: listId, team: !listId, listTitle: listId ? '내 할 일' : '팀 공유' })); return db.tasks; },
     updateTask: (id, t) => { Object.assign(db.tasks.find(x => x.id === id), t); return db.tasks; },
-    setTaskDone: (id, done) => { const x = db.tasks.find(t => t.id === id); x.done = done; x.completed = done ? new Date().toISOString() : ''; return db.tasks; },
+    setTaskDone: (id, done) => { const x = db.tasks.find(t => t.id === id); x.done = done; x.completed = done ? new Date().toISOString() : ''; x.status = ''; return db.tasks; },
+    setTaskStatus: (id, st, listId, msg) => { const x = db.tasks.find(t => t.id === id); x.status = st; x.done = false; x.comments = (x.comments || []).concat([{ id: 'c' + (++seq), at: Date.now(), who: '대표', text: (st === '검토대기' ? '검토 요청' : '다시 요청') + (msg ? ' — ' + msg : ''), kind: 'sys' }]); return db.tasks; },
+    addTaskComment: (id, text) => { const x = db.tasks.find(t => t.id === id); x.comments = (x.comments || []).concat([{ id: 'c' + (++seq), at: Date.now(), who: '대표', text: text, kind: '' }]); return db.tasks; },
     deleteTask: id => { db.tasks = db.tasks.filter(x => x.id !== id); return db.tasks; },
     saveNote: n => { const x = db.notes.find(o => o.id === n.id); const v = Object.assign({}, n, { updated: Date.now() }); if (x) Object.assign(x, v); else db.notes.push(Object.assign(v, { id:'n' + (++seq) })); return db.notes; },
     deleteNote: id => { db.notes = db.notes.filter(x => x.id !== id); return db.notes; },
