@@ -1,7 +1,7 @@
 <!doctype html><html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline'; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 납부 안내</title>
@@ -30,6 +30,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
 .fix{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:440px;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 16px;background:rgba(242,245,247,.95);border-top:1px solid var(--hair)}
 .fix a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;border-radius:14px;text-decoration:none;font-size:15px;font-weight:800}.call{background:var(--teal);color:#fff}.kk{background:var(--paper);color:var(--ink);border:1.5px solid var(--hair)}
 .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(22,33,43,.92);color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}.toast.on{opacity:1}
+.orig{text-align:center}.ob{width:100%;min-height:48px;border-radius:14px;border:1.5px solid var(--teal);background:var(--paper);color:var(--teal);font:inherit;font-size:15px;font-weight:800;cursor:pointer}.ob:disabled{opacity:.6}.pg{display:block;width:100%;height:auto;margin-top:12px;border:1px solid var(--hair);border-radius:8px;background:#fff}.dl{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;font-size:14px;font-weight:700;color:var(--teal)}
 @media (prefers-reduced-motion:reduce){.in,.bar{animation:none;opacity:1;transform:none}}
 .fix.home{position:static;display:flex;justify-content:center;gap:8px;margin-top:16px;padding:0;background:none;border:0}.fix.home a{min-height:40px;padding:0 16px;border-radius:10px;font-size:14px}
 </style></head><body><noscript><main><div class="msg"><b>이 브라우저에서는 열 수 없습니다</b><span>다른 브라우저로 열어 주시거나 02-2088-1264 로 연락 주시기 바랍니다.</span></div></main></noscript><main id="app" aria-live="polite"><div class="sk"><div class="bar" style="width:40%"></div><div class="bar big"></div><div class="bar" style="width:80%"></div></div></main><nav class="fix"><a class="call" href="tel:02-2088-1264">사무실 전화</a><a class="kk" href="http://pf.kakao.com/_mkRxoG/chat" target="_blank" rel="noopener">카카오톡 문의</a></nav><div id="toast" class="toast" role="status"></div><script>(function payClient_() {
@@ -71,20 +72,56 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
       (rows ? '<div class="sec"><dl class="facts">' + rows + '</dl></div>' : '') + (x.note ? '<div class="note">' + esc(x.note) + '</div>' : '') +
       (x.eno ? '<div class="eno"><div class="sec-h">전자납부번호 · 은행 앱 \'' + (/지방소득세|지방세|위택스/.test(x.title || '') ? '지방세' : '국세') + ' 납부\'용</div><div class="row"><div class="no num">' + esc(x.eno) + '</div>' + cpBtn(x.eno, '전자납부번호') + '</div></div>' : '') + '</section>';
   }
-  async function show(bin, k) {
+  async function openBin(bin, k) {
+    const buf = b64u(bin).buffer;
+    const key = await crypto.subtle.importKey('raw', b64u(k), 'AES-GCM', false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, key, new Uint8Array(buf, 12));
+    return JSON.parse(new TextDecoder().decode(plain));
+  }
+  // 원본 납부서(2026-11-09): 같은 열쇠로 풀어 pdf.js(cdnjs 고정판, 변조 검사)로 쪽마다 그림 — 카톡 안 브라우저는 PDF 를 바로 못 여는 경우가 많음.
+  // 일꾼 스크립트도 이 화면 안에서 돌려(pdfjsWorker) PDF 가 다른 곳으로 안 감. 글꼴은 그림 선으로(disableFontFace — 화면 보안 정책)
+  const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  const addScript = (src, sri) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = PDFJS + src; s.integrity = sri; s.crossOrigin = 'anonymous'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+  async function loadPdf() {
+    if (!window.pdfjsWorker) await addScript('pdf.worker.min.js', 'sha512-BbrZ76UNZq5BhH7LL7pn9A4TKQpQeNCHOo65/akfelcIBbcVvYWOFQKPXIrykE3qZxYjmDX573oa4Ywsc7rpTw==');
+    if (!window.pdfjsLib) await addScript('pdf.min.js', 'sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ==');
+    return window.pdfjsLib;
+  }
+  async function openOrig(f, k, btn) {
+    const box = btn.nextElementSibling;
+    btn.disabled = true; btn.textContent = '원본 납부서를 불러오는 중…';
+    try {
+      const j = await (await fetch('https://script.google.com/macros/s/AKfycbw-F_NAFmuGlX2w_IZjv-dGbzvgpzT2WoIOcKrsuRngpZ3lsU_zwqz8E8dlYHn6UCbJ/exec', { method: 'POST', credentials: 'omit', body: JSON.stringify({ fn: 'payOrigFetch', cred: '', args: [f] }) })).json();
+      if (!(j.ok && j.data)) throw new Error('none');
+      const data = await openBin(j.data, k), lib = await loadPdf(), files = data.files || [];
+      box.innerHTML = '';
+      for (let i = 0; i < files.length; i++) {
+        const bytes = Uint8Array.from(atob(files[i].pdf), (c) => c.charCodeAt(0));
+        const doc = await lib.getDocument({ data: bytes.slice(), disableFontFace: true, isEvalSupported: false }).promise;
+        for (let n = 1; n <= doc.numPages; n++) {
+          const pg = await doc.getPage(n), w = box.clientWidth || 360, sc = Math.min(3, (w * (window.devicePixelRatio || 1)) / pg.getViewport({ scale: 1 }).width), vp = pg.getViewport({ scale: sc });
+          const cv = document.createElement('canvas'); cv.className = 'pg'; cv.width = vp.width; cv.height = vp.height;
+          await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+          box.appendChild(cv);
+        }
+        const a = document.createElement('a'); a.className = 'dl'; a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); a.download = files[i].name || '원본납부서.pdf'; a.textContent = 'PDF 파일로 받기' + (files.length > 1 ? ' ' + (i + 1) : '');
+        box.appendChild(a);
+      }
+      btn.remove();
+    } catch (e) { btn.disabled = false; btn.textContent = e && e.message === 'none' ? '원본 납부서가 없습니다 — 당 사무실로 연락 주십시오' : '원본을 열지 못했습니다 — 다시 누르기'; }
+  }
+  async function show(bin, k, f) {
     let data;
     try {
-      const buf = b64u(bin).buffer;
-      const key = await crypto.subtle.importKey('raw', b64u(k), 'AES-GCM', false, ['decrypt']);
-      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, key, new Uint8Array(buf, 12));
-      data = JSON.parse(new TextDecoder().decode(plain));
+      data = await openBin(bin, k);
     } catch (e) { return fail('이 링크로는 열 수 없습니다', '링크가 일부 잘렸거나 변경된 것으로 보입니다. 당 사무실로 연락 주시기 바랍니다.'); }
     const items = data.items || [], late = items.some((x) => (dday(x.due) == null ? 0 : dday(x.due)) < 0), sum = items.reduce((t, x) => t + (+x.amt || 0), 0);
     app.innerHTML = '<header class="head in"><div class="eyebrow">' + OFFICE + ' · 납부 안내</div><div class="name">' + esc(data.name) + '</div><div class="lead">계좌번호 옆 [복사]를 누르신 후 은행 앱에 붙여넣어 주십시오.</div></header>' +
       (late ? '<div class="late-bar in">납부기한이 경과한 건이 있습니다. 이미 납부하셨다면 참고만 해 주시고, 납부 전이시라면 당 사무실로 연락 주시기 바랍니다.</div>' : '') +
       (items.length > 1 ? '<div class="total in"><span>' + items.length + '건 · 건마다 계좌가 다릅니다</span><b class="num">합계 ' + won(sum) + '원</b></div>' : '') +
-      items.map(card).join('') + '<div class="foot in">' + OFFICE + '에서 ' + esc(String(data.made || '').slice(0, 10)) + '에 보낸 안내입니다.</div>';
+      items.map(card).join('') + (data.orig > 0 ? '<section class="card in orig"><button class="ob" type="button">원본 납부서 열어보기</button><div class="ov"></div></section>' : '') + '<div class="foot in">' + OFFICE + '에서 ' + esc(String(data.made || '').slice(0, 10)) + '에 보낸 안내입니다.</div>';
     app.querySelectorAll('.cp').forEach((b) => b.addEventListener('click', () => copy(b.getAttribute('data-c'), b)));
+    const ob = app.querySelector('.ob'); if (ob) ob.addEventListener('click', () => openOrig(f, k, ob));
     const fit = () => app.querySelectorAll('.eno .no').forEach((e) => { e.style.fontSize = ''; let f = 18; while (e.scrollWidth > e.clientWidth && f > 11) e.style.fontSize = (--f) + 'px'; });  // 전자납부번호는 한 줄로 — 좁은 휴대폰에서 줄이 넘어가던 것(2026-11-06)
     fit(); addEventListener('resize', fit);
   }
@@ -106,7 +143,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
     // 쿠키 없이 팀 서버에서 암호문만 받음(열쇠 k 는 보내지 않음)
     fetch('https://script.google.com/macros/s/AKfycbw-F_NAFmuGlX2w_IZjv-dGbzvgpzT2WoIOcKrsuRngpZ3lsU_zwqz8E8dlYHn6UCbJ/exec', { method: 'POST', credentials: 'omit', body: JSON.stringify({ fn: 'payFetch', cred: '', args: [f] }) })
       .then((r) => r.json())
-      .then((j) => (j.ok && j.data ? show(j.data, k) : fail('열람 기간이 지났거나 확인되지 않는 안내입니다', '납부기한이 상당 기간 경과한 경우 당 사무실로 연락 주시기 바랍니다.')))
+      .then((j) => (j.ok && j.data ? show(j.data, k, f) : fail('열람 기간이 지났거나 확인되지 않는 안내입니다', '납부기한이 상당 기간 경과한 경우 당 사무실로 연락 주시기 바랍니다.')))
       .catch(() => fail('잠시 후 다시 열어 주십시오', '연결이 원활하지 않습니다.'));
   })();
 })();</script></body></html>
