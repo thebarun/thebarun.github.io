@@ -350,7 +350,8 @@ const Card = ({
   id,
   ...rest
 }) => React.createElement("div", _extends({
-  id: id
+  id: id,
+  className: "card"
 }, rest, {
   style: {
     background: C.card,
@@ -368,6 +369,7 @@ const Pill = ({
   onClick,
   color
 }) => React.createElement("button", {
+  className: active ? "pill on" : "pill",
   onClick: onClick,
   style: {
     border: "1px solid transparent",
@@ -1756,7 +1758,8 @@ const NoteGrid = ({
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))",
     gap: 10,
-    marginTop: 16
+    marginTop: 16,
+    alignItems: "start"
   }
 }, children);
 const NoteItem = ({
@@ -1766,11 +1769,10 @@ const NoteItem = ({
 }) => React.createElement("div", {
   style: {
     gridColumn: wide ? "1 / -1" : "auto",
-    background: "#F7FAFB",
-    border: `1px solid ${C.line}`,
-    borderLeft: `4px solid ${C.accent}`,
-    borderRadius: 10,
-    padding: "11px 14px"
+    background: C.soft,
+    border: "none",
+    borderRadius: 14,
+    padding: "13px 16px"
   }
 }, React.createElement("div", {
   style: {
