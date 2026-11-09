@@ -1,7 +1,7 @@
 <!doctype html><html lang="ko"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline'; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'unsafe-inline'; connect-src https://script.google.com https://script.googleusercontent.com https://cdn.jsdelivr.net; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 납부 안내</title>
@@ -79,7 +79,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
     return JSON.parse(new TextDecoder().decode(plain));
   }
   // 원본 납부서(2026-11-09): 같은 열쇠로 풀어 pdf.js(cdnjs 고정판, 변조 검사)로 쪽마다 그림 — 카톡 안 브라우저는 PDF 를 바로 못 여는 경우가 많음.
-  // 일꾼 스크립트도 이 화면 안에서 돌려(pdfjsWorker) PDF 가 다른 곳으로 안 감. 글꼴은 그림 선으로(disableFontFace — 화면 보안 정책)
+  // 일꾼 스크립트도 이 화면 안에서 돌려(pdfjsWorker) PDF 가 다른 곳으로 안 감. 한글 글자표(CMap)만 jsdelivr 에서 받음 — PDF 는 안 보냄
   const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   const addScript = (src, sri) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = PDFJS + src; s.integrity = sri; s.crossOrigin = 'anonymous'; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
   async function loadPdf() {
@@ -97,14 +97,14 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
       box.innerHTML = '';
       for (let i = 0; i < files.length; i++) {
         const bytes = Uint8Array.from(atob(files[i].pdf), (c) => c.charCodeAt(0));
-        const doc = await lib.getDocument({ data: bytes.slice(), disableFontFace: true, isEvalSupported: false }).promise;
+        const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false, cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/', cMapPacked: true }).promise; /* 위택스 납부서는 글꼴을 안 품어 disableFontFace 면 빈 그림(2026-11-09) */
         for (let n = 1; n <= doc.numPages; n++) {
           const pg = await doc.getPage(n), w = box.clientWidth || 360, sc = Math.min(3, (w * (window.devicePixelRatio || 1)) / pg.getViewport({ scale: 1 }).width), vp = pg.getViewport({ scale: sc });
           const cv = document.createElement('canvas'); cv.className = 'pg'; cv.width = vp.width; cv.height = vp.height;
           await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
           box.appendChild(cv);
         }
-        const a = document.createElement('a'); a.className = 'dl'; a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); a.download = files[i].name || '원본납부서.pdf'; a.textContent = 'PDF 파일로 받기' + (files.length > 1 ? ' ' + (i + 1) : '');
+        const a = document.createElement('a'); a.className = 'dl'; a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); a.download = files[i].name || '원본납부서.pdf'; const nm = /^(국세|지방세)납부서(?:_(\d+))?\.pdf$/.exec(files[i].name || ''); a.textContent = nm ? nm[1] + '납부서 파일' + (nm[2] ? ' ' + nm[2] : '') : 'PDF 파일로 받기' + (files.length > 1 ? ' ' + (i + 1) : '');
         box.appendChild(a);
       }
       btn.remove();
