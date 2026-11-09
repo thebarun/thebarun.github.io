@@ -320,12 +320,12 @@ const C = {
   navBg: "#0F4C63",
   navSub: "rgba(255,255,255,.72)",
   navActive: "rgba(255,255,255,.14)",
-  bg: "#F3F6F8",
+  bg: "#F2F5F7",
   card: "#FFFFFF",
   ink: "#15232B",
   sub: "#56666F",
-  line: "#DFE6EA",
-  soft: "#EEF3F6",
+  line: "#E3E9ED",
+  soft: "#EDF2F5",
   accent: "#1E6E8E",
   accentSoft: "#E8F1F5",
   pop: "#E08A3C",
@@ -345,7 +345,7 @@ function todayISO() {
 }
 const Card = ({
   children,
-  pad = 16,
+  pad = 20,
   style,
   id,
   ...rest
@@ -354,9 +354,9 @@ const Card = ({
 }, rest, {
   style: {
     background: C.card,
-    border: `1px solid ${C.line}`,
-    borderRadius: 12,
-    boxShadow: "0 1px 2px rgba(16,40,52,.05)",
+    border: "none",
+    borderRadius: 16,
+    boxShadow: "0 1px 2px rgba(16,40,52,.04), 0 6px 20px rgba(16,40,52,.05)",
     padding: pad,
     ...style
   }
@@ -369,13 +369,13 @@ const Pill = ({
 }) => React.createElement("button", {
   onClick: onClick,
   style: {
-    border: `1px solid ${active ? color || C.accent : C.line}`,
-    background: active ? color || C.accent : "#fff",
+    border: "1px solid transparent",
+    background: active ? color || C.accent : C.soft,
     color: active ? "#fff" : C.sub,
     borderRadius: 999,
-    padding: "5px 13px",
-    fontSize: 12,
-    fontWeight: 600,
+    padding: "6px 14px",
+    fontSize: 12.5,
+    fontWeight: active ? 700 : 600,
     cursor: "pointer",
     fontFamily: "inherit",
     whiteSpace: "nowrap"
@@ -403,8 +403,8 @@ function useMem(key, init) {
 }
 const tInput = {
   border: `1px solid ${C.line}`,
-  borderRadius: 7,
-  padding: "9px 11px",
+  borderRadius: 12,
+  padding: "9px 12px",
   fontSize: 13,
   fontFamily: "inherit",
   outline: "none",
@@ -415,11 +415,11 @@ const tInput = {
 const tBtn = primary => ({
   background: primary ? C.accent : "#fff",
   color: primary ? "#fff" : C.ink,
-  border: primary ? "none" : `1px solid ${C.line}`,
-  borderRadius: 7,
+  border: primary ? "1px solid transparent" : `1px solid ${C.line}`,
+  borderRadius: 12,
   padding: "8px 14px",
   fontSize: 12.5,
-  fontWeight: 700,
+  fontWeight: primary ? 700 : 600,
   cursor: "pointer",
   fontFamily: "inherit",
   whiteSpace: "nowrap"
@@ -1730,7 +1730,7 @@ const RateWarn = ({
     background: "#FDF1F0",
     border: `1px solid ${C.warn}55`,
     borderLeft: `5px solid ${C.warn}`,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: "9px 12px",
     marginTop: 12,
     fontSize: 12.5,
@@ -1768,7 +1768,7 @@ const NoteItem = ({
     background: "#F7FAFB",
     border: `1px solid ${C.line}`,
     borderLeft: `4px solid ${C.accent}`,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: "11px 14px"
   }
 }, React.createElement("div", {
@@ -2636,7 +2636,7 @@ function BizIncomeCalc() {
     style: {
       marginTop: 12,
       padding: "10px 14px",
-      borderRadius: 8,
+      borderRadius: 10,
       fontSize: 12.5,
       lineHeight: 1.6,
       background: "#FDF1F0",
@@ -2946,7 +2946,7 @@ function MinWageCalc() {
     style: {
       marginTop: 14,
       padding: "10px 14px",
-      borderRadius: 8,
+      borderRadius: 10,
       fontWeight: 800,
       fontSize: 14,
       background: r.ok ? "#EEF8F2" : "#FDF1F0",
@@ -3140,7 +3140,7 @@ function JuhyuCalc() {
     style: {
       marginTop: 12,
       padding: "9px 12px",
-      borderRadius: 8,
+      borderRadius: 10,
       fontSize: 12.5,
       background: "#FDF1F0",
       color: C.warn,
@@ -3152,7 +3152,7 @@ function JuhyuCalc() {
     style: {
       marginTop: 14,
       padding: "10px 14px",
-      borderRadius: 8,
+      borderRadius: 10,
       fontWeight: 800,
       fontSize: 14,
       background: "#F7FAFB",
@@ -3414,7 +3414,7 @@ function ProrateCalc() {
     style: {
       marginTop: 14,
       padding: "10px 14px",
-      borderRadius: 8,
+      borderRadius: 10,
       fontWeight: 800,
       fontSize: 14,
       background: m.ok ? "#EEF8F2" : "#FDF1F0",
@@ -3614,7 +3614,7 @@ const YeSec = ({
     className: "ye-sec",
     style: {
       border: `1px solid ${shut ? C.soft : C.line}`,
-      borderRadius: 8,
+      borderRadius: 10,
       padding: shut ? "0 12px" : "10px 12px 12px",
       marginTop: fold ? 8 : 12,
       background: shut ? "#FAFCFD" : "transparent"
@@ -4295,7 +4295,7 @@ function YearEndCalc() {
     style: {
       marginTop: 16,
       padding: "12px 16px",
-      borderRadius: 10,
+      borderRadius: 12,
       background: refund ? "#EEF8F2" : sum > 0 ? "#FDF1F0" : "#F2F6F8",
       border: `1px solid ${refund ? C.ok : sum > 0 ? C.warn : C.line}55`,
       display: "flex",
@@ -4490,7 +4490,7 @@ function SmeYouthNote() {
       marginTop: 10,
       border: `1px solid ${C.line}`,
       borderLeft: `4px solid ${C.accent}`,
-      borderRadius: 8,
+      borderRadius: 10,
       padding: "10px 14px",
       background: "#FAFCFD"
     }
@@ -4582,7 +4582,7 @@ function RetireCalc() {
     style: {
       marginTop: 12,
       padding: "10px 14px",
-      borderRadius: 8,
+      borderRadius: 10,
       fontSize: 12.5,
       lineHeight: 1.6,
       background: bg,
