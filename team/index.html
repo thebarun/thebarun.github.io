@@ -9,10 +9,11 @@
 <title>더바른 세무회계 팀 대시보드</title>
 <style>
 :root{
-  --bg:#F3F6F6; --surface:#FFFFFF; --surface-2:#F2F6F6; --text:#10302E; --muted:#46575C; --border:#DCE5E5;
+  --bg:#F2F5F5; --surface:#FFFFFF; --surface-2:#EFF4F4; --text:#10302E; --muted:#46575C; --border:#E3EAEA;
   --primary:#0F766E; --primary-hover:#115E59; --on-primary:#FFFFFF; --primary-soft:#E3F2F0;
   --accent:#C2410C; --accent-soft:#FFF0E6; --danger:#B91C1C; --danger-soft:#FDECEC; --ok:#15803D; --ok-soft:#E5F5EA;
-  --ring:#0F766E; --radius:12px; --radius-sm:8px;
+  --ring:#0F766E; --radius:18px; --radius-sm:12px;
+  --shadow:0 1px 2px rgba(16,48,46,.04),0 6px 20px rgba(16,48,46,.05); --card-border:transparent; /* 토스 스타일: 카드는 테두리 대신 옅은 그림자 */
   --n-default:#FFFFFF; --n-yellow:#FFF6D6; --n-green:#E4F5E8; --n-blue:#E5EFFB; --n-pink:#FCE8EF; --n-purple:#EFE9FB;
   color-scheme: light;
 }
@@ -21,7 +22,7 @@
     --bg:#0D1716; --surface:#14211F; --surface-2:#1A2A28; --text:#E3EEEC; --muted:#A9BAB8; --border:#26403C;
     --primary:#2DD4BF; --primary-hover:#5EEAD4; --on-primary:#06201D; --primary-soft:#123430;
     --accent:#FB923C; --accent-soft:#3A2414; --danger:#F87171; --danger-soft:#3A1818; --ok:#4ADE80; --ok-soft:#14301E;
-    --ring:#2DD4BF;
+    --ring:#2DD4BF; --shadow:none; --card-border:#26403C;
     --n-default:#14211F; --n-yellow:#332D12; --n-green:#16301F; --n-blue:#162638; --n-pink:#371B26; --n-purple:#291F3D;
     color-scheme: dark;
   }
@@ -38,9 +39,9 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 /* Top bar */
 .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
 .brand{display:flex;align-items:center;gap:12px;margin-right:auto;min-width:0}
-.mark{width:40px;height:40px;border-radius:10px;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;flex:none}
+.mark{width:40px;height:40px;border-radius:12px;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;flex:none}
 .mark svg{width:22px;height:22px}
-.brand h1{font-size:19px;font-weight:700;margin:0;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand p{margin:0;color:var(--muted);font-size:13px}
 .tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);font-weight:600;font-size:14px;transition:background .15s,border-color .15s,color .15s;text-decoration:none;color:var(--text);white-space:nowrap}
@@ -62,13 +63,13 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 
 /* Stats */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:12px;text-align:left;transition:border-color .15s}
+.stat{background:var(--surface);border:1px solid var(--card-border);box-shadow:var(--shadow);border-radius:var(--radius);padding:16px 18px;display:flex;align-items:center;gap:12px;text-align:left;transition:border-color .15s}
 .stat:hover{border-color:var(--primary)}
 .stat[aria-pressed="true"]{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
 .qf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;border-radius:var(--radius-sm);background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:700}
 .qf .btn{margin-left:auto}
-.stat .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex:none}
-.stat b{display:block;font-size:24px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none}
+.stat b{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
 .stat span{color:var(--muted);font-size:13px}
 .ic.teal{background:var(--primary-soft);color:var(--primary)}
 .ic.orange{background:var(--accent-soft);color:var(--accent)}
@@ -78,14 +79,14 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 /* Layout */
 .grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px;align-items:start}
 .col{display:flex;flex-direction:column;gap:20px;min-width:0}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--card-border);box-shadow:var(--shadow);border-radius:var(--radius);padding:20px;min-width:0}
 .card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.card-head h2{font-size:16px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
+.card-head h2{font-size:17px;font-weight:700;letter-spacing:-.02em;margin:0;display:flex;align-items:center;gap:8px}
 .card-head h2 svg{color:var(--primary)}
 .card-head .count{color:var(--muted);font-weight:500;font-size:14px}
 .card-head .right{margin-left:auto;display:flex;gap:6px;align-items:center}
 .seg{display:inline-flex;background:var(--surface-2);border-radius:var(--radius-sm);padding:3px}
-.seg button{border:0;background:transparent;height:30px;padding:0 12px;border-radius:6px;font-size:13px;font-weight:600;color:var(--muted);transition:background .15s,color .15s}
+.seg button{border:0;background:transparent;height:30px;padding:0 12px;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted);transition:background .15s,color .15s}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--border)}
 /* 내 할 일 / 팀 전체 */
 .space-tabs{display:flex;border-bottom:1px solid var(--border);margin:-4px 0 12px}
@@ -104,12 +105,12 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .quick{display:flex;gap:8px;margin-bottom:12px}
 .quick .input{flex:1}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
-.chip{height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.chip{height:30px;padding:0 12px;border-radius:999px;border:1px solid transparent;background:var(--surface-2);font-size:13px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px;transition:all .15s}
 .chip:hover{border-color:var(--primary);color:var(--text)}
 .chip[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
 .chip .n{font-variant-numeric:tabular-nums;opacity:.8}
 /* 담당자 배정 (여러 명) */
-.pick{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-4px 0 12px;padding:10px 12px;border:1px dashed var(--border);border-radius:var(--radius-sm)}
+.pick{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-4px 0 12px;padding:10px 12px;border:0;background:var(--surface-2);border-radius:var(--radius-sm)}
 .pick-lbl{font-size:13px;font-weight:700;color:var(--muted);margin-right:4px}
 .pick .chip.all{border-style:dashed}
 .flow{display:inline-flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
@@ -237,7 +238,7 @@ body.has-alert .wrap{padding-bottom:150px}
 [hidden]{display:none!important}
 /* 로그인 */
 .login{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:16px}
-.login-card{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 22px;text-align:center}
+.login-card{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--card-border);box-shadow:var(--shadow);border-radius:var(--radius);padding:28px 22px;text-align:center}
 .login-card .mark{margin:0 auto 14px}
 .login-card h2{margin:0 0 6px;font-size:18px}
 .login-card p{margin:0 0 18px;color:var(--muted);font-size:14px}
