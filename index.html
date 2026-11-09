@@ -30,7 +30,7 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
 .fix{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:440px;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 16px;background:rgba(242,245,247,.95);border-top:1px solid var(--hair)}
 .fix a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;border-radius:14px;text-decoration:none;font-size:15px;font-weight:800}.call{background:var(--teal);color:#fff}.kk{background:var(--paper);color:var(--ink);border:1.5px solid var(--hair)}
 .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:rgba(22,33,43,.92);color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}.toast.on{opacity:1}
-.orig{text-align:center}.ob{width:100%;min-height:48px;border-radius:14px;border:1.5px solid var(--teal);background:var(--paper);color:var(--teal);font:inherit;font-size:15px;font-weight:800;cursor:pointer}.ob:disabled{opacity:.6}.pg{display:block;width:100%;height:auto;margin-top:12px;border:1px solid var(--hair);border-radius:8px;background:#fff}.dl{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;font-size:14px;font-weight:700;color:var(--teal)}
+.orig{text-align:center}.oh{text-align:left;font-size:15px;font-weight:800;margin-top:14px}.oh:first-child{margin-top:0}.ob{width:100%;min-height:48px;border-radius:14px;border:1.5px solid var(--teal);background:var(--paper);color:var(--teal);font:inherit;font-size:15px;font-weight:800;cursor:pointer}.ob:disabled{opacity:.6}.pg{display:block;width:100%;height:auto;margin-top:12px;border:1px solid var(--hair);border-radius:8px;background:#fff}.dl{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;font-size:14px;font-weight:700;color:var(--teal)}
 @media (prefers-reduced-motion:reduce){.in,.bar{animation:none;opacity:1;transform:none}}
 .fix.home{position:static;display:flex;justify-content:center;gap:8px;margin-top:16px;padding:0;background:none;border:0}.fix.home a{min-height:40px;padding:0 16px;border-radius:10px;font-size:14px}
 </style></head><body><noscript><main><div class="msg"><b>이 브라우저에서는 열 수 없습니다</b><span>다른 브라우저로 열어 주시거나 02-2088-1264 로 연락 주시기 바랍니다.</span></div></main></noscript><main id="app" aria-live="polite"><div class="sk"><div class="bar" style="width:40%"></div><div class="bar big"></div><div class="bar" style="width:80%"></div></div></main><nav class="fix"><a class="call" href="tel:02-2088-1264">사무실 전화</a><a class="kk" href="http://pf.kakao.com/_mkRxoG/chat" target="_blank" rel="noopener">카카오톡 문의</a></nav><div id="toast" class="toast" role="status"></div><script>(function payClient_() {
@@ -95,17 +95,19 @@ main{max-width:440px;margin:0 auto;padding:20px 16px 96px}.num{font-variant-nume
       if (!(j.ok && j.data)) throw new Error('none');
       const data = await openBin(j.data, k), lib = await loadPdf(), files = data.files || [];
       box.innerHTML = '';
-      for (let i = 0; i < files.length; i++) {
-        const bytes = Uint8Array.from(atob(files[i].pdf), (c) => c.charCodeAt(0));
-        const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false, cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/', cMapPacked: true }).promise; /* 위택스 납부서는 글꼴을 안 품어 disableFontFace 면 빈 그림(2026-11-09) */
-        for (let n = 1; n <= doc.numPages; n++) {
-          const pg = await doc.getPage(n), w = box.clientWidth || 360, sc = Math.min(3, (w * (window.devicePixelRatio || 1)) / pg.getViewport({ scale: 1 }).width), vp = pg.getViewport({ scale: sc });
-          const cv = document.createElement('canvas'); cv.className = 'pg'; cv.width = vp.width; cv.height = vp.height;
-          await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-          box.appendChild(cv);
-        }
-        const a = document.createElement('a'); a.className = 'dl'; a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); a.download = files[i].name || '원본납부서.pdf'; const nm = /^(국세|지방세)납부서(?:_(\d+))?\.pdf$/.exec(files[i].name || ''); a.textContent = nm ? nm[1] + '납부서 파일' + (nm[2] ? ' ' + nm[2] : '') : 'PDF 파일로 받기' + (files.length > 1 ? ' ' + (i + 1) : '');
-        box.appendChild(a);
+      // 종류(국세·지방세)마다 첫 장 한 장만 그림 + 위에 '국세납부서 (3장)'(2026-11-09 대표님 요청 — 여러 장을 다 그리면 길어짐). 받기는 파일마다
+      const groups = [];
+      files.forEach((x, i) => { const m = /^(국세|지방세)납부서(?:_\d+)?\.pdf$/.exec(x.name || ''), lab = m ? m[1] + '납부서' : '원본 납부서 ' + (i + 1); let g = groups.find((y) => y.lab === lab); if (!g) groups.push(g = { lab, items: [] }); g.items.push(x); });
+      for (const g of groups) {
+        const docs = [];
+        for (const x of g.items) { const bytes = Uint8Array.from(atob(x.pdf), (c) => c.charCodeAt(0)); docs.push({ x, bytes, doc: await lib.getDocument({ data: bytes.slice(), isEvalSupported: false, cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/', cMapPacked: true }).promise }); }
+        const pages = docs.reduce((t, d) => t + d.doc.numPages, 0);
+        const h = document.createElement('div'); h.className = 'oh'; h.textContent = g.lab + (pages > 1 ? ' (' + pages + '장)' : ''); box.appendChild(h);
+        const pg = await docs[0].doc.getPage(1), w = box.clientWidth || 360, sc = Math.min(3, (w * (window.devicePixelRatio || 1)) / pg.getViewport({ scale: 1 }).width), vp = pg.getViewport({ scale: sc });
+        const cv = document.createElement('canvas'); cv.className = 'pg'; cv.width = vp.width; cv.height = vp.height;
+        await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+        box.appendChild(cv);
+        docs.forEach((d, i) => { const a = document.createElement('a'); a.className = 'dl'; a.href = URL.createObjectURL(new Blob([d.bytes], { type: 'application/pdf' })); a.download = d.x.name || '원본납부서.pdf'; a.textContent = (/납부서$/.test(g.lab) ? g.lab : 'PDF') + ' 파일' + (docs.length > 1 ? ' ' + (i + 1) : ''); box.appendChild(a); });
       }
       btn.remove();
     } catch (e) { btn.disabled = false; btn.textContent = e && e.message === 'none' ? '원본 납부서가 없습니다 — 당 사무실로 연락 주십시오' : '원본을 열지 못했습니다 — 다시 누르기'; }
