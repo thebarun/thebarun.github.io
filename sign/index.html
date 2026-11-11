@@ -502,8 +502,9 @@
       return cv;
     });
   }
-  function cmsUrl(cv) { // JPEG 0.9 — PNG(약 52만 자)보다 작아 올리기·서버 보관이 빠름(2026-11-11). 한 번 그린 값을 다시 보낼 때도 그대로 씀
-    return cv.toDataURL('image/jpeg', 0.9);
+  function cmsUrl(cv) { // 보통 PNG 52만 자 안팎(흰 바탕 서식이라 JPEG 0.9 는 오히려 58만 자로 큼 — 2026-11-11 실측), 너무 크면 JPEG
+    var u = cv.toDataURL('image/png');
+    return u.length > 2500000 ? cv.toDataURL('image/jpeg', 0.9) : u;
   }
   function renderCmsPreview() {
     $('cms-img').removeAttribute('src');
