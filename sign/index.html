@@ -260,8 +260,8 @@
   <section id="s4" hidden>
     <div class="done">
       <div class="ok">✓</div>
-      <h2>서명이 완료되었어요</h2>
-      <p>완성된 <span id="done-what">계약서</span> PDF를<br>잠시 후 <b id="done-mail"></b>(으)로 보내드릴게요.</p>
+      <h2>서명이 완료되었습니다</h2>
+      <p>완성된 <span id="done-what">계약서</span> PDF를<br>잠시 후 <b id="done-mail"></b>(으)로 보내드리겠습니다.</p>
       <p style="margin-top:14px">이 창은 닫으셔도 됩니다.<br>소중한 인연에 감사드립니다.</p>
       <p class="foot">더바른세무회계 · (02) 2088-1264</p>
     </div>
@@ -271,7 +271,7 @@
   <section id="s5" hidden>
     <div class="done">
       <span class="spin" style="display:block;width:32px;height:32px;margin:0 auto 20px;border-color:#d6e4fb;border-top-color:var(--brand)"></span>
-      <h2 style="font-size:20px">이전에 보내지 못한 서명을 보내는 중이에요</h2>
+      <h2 style="font-size:20px">이전에 보내지 못한 서명을 보내고 있습니다</h2>
       <p>잠시만 기다려 주세요.</p>
     </div>
   </section>
@@ -502,9 +502,8 @@
       return cv;
     });
   }
-  function cmsUrl(cv) { // 보통 PNG 300KB 안팎, 너무 크면 JPEG
-    var u = cv.toDataURL('image/png');
-    return u.length > 2500000 ? cv.toDataURL('image/jpeg', 0.9) : u;
+  function cmsUrl(cv) { // JPEG 0.9 — PNG(약 52만 자)보다 작아 올리기·서버 보관이 빠름(2026-11-11). 한 번 그린 값을 다시 보낼 때도 그대로 씀
+    return cv.toDataURL('image/jpeg', 0.9);
   }
   function renderCmsPreview() {
     $('cms-img').removeAttribute('src');
