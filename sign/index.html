@@ -228,6 +228,8 @@
         <span>계약서 전문을 확인했으며 내용에 동의합니다.</span></label>
       <label class="agree"><input type="checkbox" id="agree2" class="ag"><span class="ck"></span>
         <span>대표자 본인이 직접 전자서명으로 계약을 체결하며, 이 전자서명이 자필 서명·날인과 같은 효력을 가지는 데 동의합니다.</span></label>
+      <label class="agree"><input type="checkbox" id="agree3" class="ag"><span class="ck"></span>
+        <span>제8조(자료·접근수단 관련 책임) 및 제11조(손해배상의 범위·한도·청구기간)의 내용을 확인하였고, 월 보수가 이를 전제로 정해졌음을 설명 들었습니다.</span></label>
       <label class="agree ap-ag" hidden><input type="checkbox" id="ap-ag1" class="ag"><span class="ck"></span>
         <span>[자동이체] 개인정보 수집 및 이용에 동의합니다.<small>CMS 출금이체 요금 수납·민원처리·동의 여부 통지 목적, 해지 후 5년 보관</small></span></label>
       <label class="agree ap-ag" hidden><input type="checkbox" id="ap-ag2" class="ag"><span class="ck"></span>
@@ -357,7 +359,7 @@
   holder();
 
   function form() {
-    var f = { 사업자유형: kind(), 동의: $('agree').checked, 전자서명동의: $('agree2').checked };
+    var f = { 사업자유형: kind(), 동의: $('agree').checked, 전자서명동의: $('agree2').checked, 책임조항확인: $('agree3').checked };
     FIELDS.forEach(function (k) { f[k] = $(k).value.trim(); });
     if (AP) f.자동이체 = {
       은행: $('ap-bank').value, 계좌번호: digits($('ap-acct').value, 20), 생년월일: corp() ? '' : digits($('ap-birth').value, 6),
