@@ -1885,7 +1885,7 @@ const CL_LABEL = { '월기장료': '월 기장료', '자택/본점번화번호':
   '대표자핸드폰번호': '대표자 휴대폰', '국세환급금계좌': '환급계좌', '국세환급금은행': '환급은행', '전자(세금)계산서의무발행': '전자계산서 의무', '관할서담당자(전화)': '관할서 담당자', '성실신고확인대상': '성실신고 대상', '결산월': '결산월(법인)' };
 const CL_TEL = { '대표자핸드폰번호': 1, '사업장전화번호': 1, '담당자연락처': 1, '자택/본점번화번호': 1 };
 const clDash = (k, v) => { const d = String(v).replace(/\D/g, ''); if (k === '사업자등록번호' && d.length === 10) return d.replace(/^(\d{3})(\d{2})(\d{5})$/, '$1-$2-$3'); if ((k === '법인등록번호' || k === '대표자주민등록번호') && d.length === 13) return d.slice(0, 6) + '-' + d.slice(6); return String(v); };
-const clName = c => c.f['상호(법인명)'] || c.f['대표자명'] || c.bsno;
+const clName = c => c.f['상호(법인명)'] || c.f['대표자명'] || '상호 없음'; // 홈택스 정보조회만 넣은 줄 — PC 대시보드가 거래처 목록 이름으로 채움(fillServerNames)
 const clOff = c => !!c.f['폐업연월일'] || /폐업/.test(c.f['사업자상태'] || '');
 const CL = { list: null, mgr: '', q: '', seen: {}, cur: null };
 async function loadClients(force){
