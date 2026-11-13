@@ -359,6 +359,29 @@ body.has-alert .wrap{padding-bottom:150px}
 .cd-kv dd a{color:var(--primary);text-decoration:none}
 .cd-see{margin:-8px 0 -8px 8px;height:40px;min-width:56px;padding:0 12px;border-radius:10px;border:0;background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:700}
 .cd-foot{font-size:12px;color:var(--muted);text-align:center;margin:4px 0 0}
+/* 휴대폰 링크 전달(2026-11-13) */
+.cl-tag.link{background:var(--primary-soft);color:var(--primary)}
+.cl-row .cl-tag+.cl-tag{margin-left:4px}
+.cd-sec.mp h4{margin:12px 0 4px;font-size:13px;font-weight:700;color:var(--muted)}
+.mp-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)}
+.cd-sec.mp h4+.mp-item{border-top:0}
+.mp-item.col{flex-direction:column;align-items:stretch}
+.mp-t{flex:1;min-width:0}
+.mp-t b{display:block;font-size:15px;font-weight:700;word-break:keep-all}
+.mp-t small{display:block;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mp-pick{display:flex;gap:8px}
+.mp-pick .select{flex:1;height:44px;font-size:15px}
+.mp-btn{flex:none;height:44px;padding:0 16px;border-radius:12px;border:0;background:var(--primary);color:var(--on-primary);font-size:15px;font-weight:700}
+.mp-btn.ghost{background:var(--primary-soft);color:var(--primary)}
+.mp-btn:disabled{opacity:.6}
+.mp-warn{flex:none;font-size:13px;font-weight:600;color:var(--danger)}
+.mp-note{margin:8px 0 4px;font-size:12px;color:var(--muted)}
+.mp-done{background:var(--primary-soft);border-radius:12px;padding:12px;margin:8px 0}
+.mp-done b{font-size:15px}
+.mp-done p{margin:6px 0 10px;font-size:13px;white-space:pre-wrap;word-break:break-all;max-height:140px;overflow:auto;color:var(--text)}
+.mp-acts{display:flex;gap:8px}
+.mp-acts .mp-btn{flex:1;white-space:nowrap}
+.mp-done .mp-btn.ghost{background:var(--surface)}
 @media (max-width:640px){
   .cl-sheet{width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}
   .view-tabs{overflow-x:auto;scrollbar-width:none}
@@ -1885,22 +1908,98 @@ const CL_LABEL = { '대시보드담당': '담당', '월기장료': '월 기장�
   '대표자핸드폰번호': '대표자 휴대폰', '국세환급금계좌': '환급계좌', '국세환급금은행': '환급은행', '전자(세금)계산서의무발행': '전자계산서 의무', '관할서담당자(전화)': '관할서 담당자', '성실신고확인대상': '성실신고 대상', '결산월': '결산월(법인)' };
 const CL_TEL = { '대표자핸드폰번호': 1, '사업장전화번호': 1, '담당자연락처': 1, '자택/본점번화번호': 1 };
 const clDash = (k, v) => { const d = String(v).replace(/\D/g, ''); if (k === '사업자등록번호' && d.length === 10) return d.replace(/^(\d{3})(\d{2})(\d{5})$/, '$1-$2-$3'); if ((k === '법인등록번호' || k === '대표자주민등록번호') && d.length === 13) return d.slice(0, 6) + '-' + d.slice(6); return String(v); };
+const CL_KO = new Intl.Collator('ko', { numeric: true }).compare;
+const clSortKey = c => clName(c).replace(/^\s*(\(주\)|㈜|주식회사|\(유\)|유한회사|\(사\)|사단법인|\(재\)|재단법인)\s*/, '');
 const clMgr = c => c.f['대시보드담당'] || '미지정'; // 담당 = PC 거래처 현황의 담당 지정만(PC 가 팀 서버 '대시보드담당' 칸에 적음, 대표님 지시 — 세무사랑 세무담당자는 안 씀)
 const clReal = v => !!String(v || '').trim() && !/^[\d\s-]+$/.test(String(v)); // 숫자뿐이면 이름 아님(사업자번호를 상호 대신 쓴 것)
 const clName = c => (clReal(c.f['상호(법인명)']) && c.f['상호(법인명)']) || c.f['대표자명'] || '상호 없음'; // 홈택스 정보조회만 넣은 줄 — PC 대시보드가 거래처 목록 이름으로 채움(fillServerNames)
 const clOff = c => !!c.f['폐업연월일'] || /폐업/.test(c.f['사업자상태'] || '');
-const CL = { list: null, mgr: '', q: '', seen: {}, cur: null };
+const CL = { list: null, mgr: '', q: '', seen: {}, cur: null, out: {}, box: {}, made: {}, onlyOut: false };
+// ───── 휴대폰 링크 전달(2026-11-13 대표님 — docs\휴대폰_링크전달_설계.md, 전송 규칙 13번) ─────
+// PC 대시보드가 팀 서버에 둔 '보낼 내용'(mobileOutbox)을 받아, 이 브라우저 안에서 건마다 새 22자 표로 AES-256-GCM 암호화 → payPut·reportPut 으로 암호문만 올림.
+// 표는 링크 # 뒤에만 — PC 대시보드(24f sealPayNotice·payTokenParts·randPayToken)와 같은 계산이라 거래처 화면(thebaruntax.kr/#, /report/#)은 그대로 열림
+const MP_B62 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const mpB64u = u => { let t = ''; for (let i = 0; i < u.length; i++) t += String.fromCharCode(u[i]); return btoa(t).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const mpToken = () => { let t = ''; while (t.length < 22) for (const b of crypto.getRandomValues(new Uint8Array(32))) { if (b < 248 && t.length < 22) t += MP_B62[b % 62]; } return t; };
+async function mpParts(t){
+  const sha = async s => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+  const n = await sha('pay-name:' + t), kb = await sha('pay-key:' + t);
+  return { f: Array.from(n.slice(0, 24), b => MP_B62[b % 62]).join(''), kb: kb };
+}
+async function mpSeal(obj, kb){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey('raw', kb, 'AES-GCM', false, ['encrypt']);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(JSON.stringify(obj))));
+  const all = new Uint8Array(12 + ct.length); all.set(iv); all.set(ct, 12);
+  return mpB64u(all);
+}
+const mpNow = full => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + (full ? ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) : ''); };
+async function mpMakePay(name, items, due){
+  const t = mpToken(), pr = await mpParts(t);
+  await call('payPut', pr.f, await mpSeal({ v: 1, name: name, made: mpNow(true), items: items, orig: 0 }, pr.kb), due || '');
+  return 'https://thebaruntax.kr/#' + t;
+}
+async function mpMakeReport(name, css, html){
+  const t = mpToken(), pr = await mpParts(t);
+  await call('reportPut', pr.f, await mpSeal({ v: 1, name: name, made: mpNow(false), css: css, html: html }, pr.kb));
+  return 'https://thebaruntax.kr/report/#' + t;
+}
+const mpWon = n => (Math.round(+n || 0)).toLocaleString('ko-KR') + '원';
+const mpFill = (tpl, url, period) => { const s = String(tpl || '{링크}').split('{기간}').join(period || ''); return s.indexOf('{링크}') >= 0 ? s.split('{링크}').join(url) : s + '\n\n' + url; };
+function mpSection(b){
+  if (!CL.out[b]) return '';
+  const box = CL.box[b], made = CL.made[b];
+  let body;
+  if (!box) body = '<p class="mp-note">불러오는 중…</p>';
+  else if (box.err) body = '<p class="mp-note">' + esc(box.err) + '</p><button type="button" class="mp-btn ghost" data-mp-reload>다시 불러오기</button>';
+  else {
+    const pay = box.pay || [], rep = box.rep;
+    const payRows = pay.map((x, i) => '<div class="mp-item"><div class="mp-t"><b>' + esc(x.title || x.kind) + '</b><small>' + esc(mpWon(+x.item.amt || 0) + (x.due ? ' · 기한 ' + x.due : '')) + '</small></div>'
+      + (x.ok ? '<button type="button" class="mp-btn" data-mp="pay" data-i="' + i + '">링크 만들기</button>' : '<span class="mp-warn">계좌 없음</span>') + '</div>').join('');
+    const allRow = box.payAll ? '<div class="mp-item"><div class="mp-t"><b>고지·체납 한 번에</b><small>' + pay.filter(x => x.ok).length + '건 · 링크 하나</small></div><button type="button" class="mp-btn" data-mp="payall">링크 만들기</button></div>' : '';
+    const per = rep && rep.periods || [];
+    const repRow = per.length ? '<div class="mp-item col"><div class="mp-t"><small>기간을 고른 뒤 만드세요(기본 = PC 결산 탭에서 고른 기간)</small></div><div class="mp-pick"><select class="select" id="mpPer" aria-label="보고서 기간">'
+      + per.map((p, i) => '<option value="' + i + '"' + (p.def ? ' selected' : '') + '>' + esc(p.label + (p.def ? ' · 기본' : '')) + '</option>').join('') + '</select><button type="button" class="mp-btn" data-mp="rep">링크 만들기</button></div></div>' : '';
+    body = (payRows || allRow ? '<h4>납부 안내</h4>' + payRows + allRow : '') + (repRow ? '<h4>손익보고서</h4>' + repRow : '') || '<p class="mp-note">보낼 내용이 없습니다.</p>';
+  }
+  const done = made ? '<div class="mp-done"><b>' + esc(made.what) + ' 링크를 만들었습니다</b><p>' + esc(made.text) + '</p><div class="mp-acts"><button type="button" class="mp-btn" data-mp-share>카톡 보내기</button><button type="button" class="mp-btn ghost" data-mp-copy>문구 복사</button></div></div>' : '';
+  return '<section class="cd-sec mp"><h3>보낼 수 있는 링크</h3>' + done + body + '<p class="mp-note">PC 대시보드가 수집한 내용입니다. 링크는 이 휴대폰에서 새로 암호화해 만듭니다.</p></section>';
+}
+async function mpLoad(b){
+  if (CL.box[b] && !CL.box[b].err) return;
+  CL.box[b] = null;
+  try { CL.box[b] = await call('mobileOutbox', b) || { err: '보낼 내용이 없습니다.' }; }
+  catch (e) { CL.box[b] = { err: (e && e.message) || '불러오지 못했습니다.' }; }
+  if (CL.cur && CL.cur.bsno === b) openClient(b);
+}
+async function mpMake(btn){
+  const b = CL.cur && CL.cur.bsno, box = b && CL.box[b]; if (!box || box.err) return;
+  const kind = btn.dataset.mp, name = box.name;
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '만드는 중…';
+  try {
+    let url, text, what;
+    if (kind === 'pay') { const x = box.pay[+btn.dataset.i]; url = await mpMakePay(name, [x.item], x.due); text = mpFill(x.msg, url); what = x.title || '납부 안내'; }
+    else if (kind === 'payall') { const xs = box.pay.filter(x => x.ok); url = await mpMakePay(name, xs.map(x => x.item), box.payAll.due); text = mpFill(box.payAll.msg, url); what = '고지·체납 ' + xs.length + '건'; }
+    else { const p = box.rep.periods[+(($('#mpPer') || {}).value || 0)]; url = await mpMakeReport(name, box.rep.css, p.html); text = mpFill(box.rep.msg, url, p.label); what = p.label + ' 손익보고서'; }
+    CL.made[b] = { url: url, text: text, what: what };
+    openClient(b);
+  } catch (e) { btn.disabled = false; btn.textContent = old; fail(e); }
+}
 async function loadClients(force){
   if (CL.list && !force) return renderClients();
   try {
+    const outP = call('mobileOutboxList').catch(() => []); /* 거래처 목록과 함께 받음 — 준비 목록이 없어도 목록은 보임 */
     const raw = await call('getClients');
     CL.list = (raw || []).map(c => {
       const f = {};
       Object.keys(c.f || {}).forEach(k => { f[k.replace(/\s+/g, '')] = String(c.f[k] == null ? '' : c.f[k]); });
       CL_SECRET.forEach(k => { if (f[k]) f[k] = CL_ON; }); // 대표·관리자도 [보기] 전에는 가림
       return { bsno: String(c.bsno), f: f, updated: c.updated, by: c.by };
-    }).filter(c => (clReal(c.f['상호(법인명)']) || clReal(c.f['대표자명'])) && !c.f['삭제'] && !c.f['완전삭제']) // PC 거래처 현황과 같게 — 이름 없는 줄(홈택스 정보조회만 넣은 줄)·지운 거래처는 뺌.sort((a, b) => (clOff(a) - clOff(b)) || clName(a).localeCompare(clName(b), 'ko'));
-    CL.seen = {};
+    }).filter(c => (clReal(c.f['상호(법인명)']) || clReal(c.f['대표자명'])) && !c.f['삭제'] && !c.f['완전삭제']) /* PC 거래처 현황과 같게 — 이름 없는 줄(홈택스 정보조회만 넣은 줄)·지운 거래처는 뺌 */
+      .sort((a, b) => (clOff(a) - clOff(b)) || CL_KO(clSortKey(a), clSortKey(b))); /* 가나다순 — (주)·주식회사 같은 앞붙임은 빼고 비교, 폐업은 맨 아래 */
+    CL.seen = {}; CL.box = {}; CL.made = {};
+    CL.out = {};
+    (await outP || []).forEach(o => { CL.out[o.key] = o; });
     renderClients();
   } catch (e) { $('#clList').innerHTML = '<li class="empty">거래처를 불러오지 못했습니다. 새로고침을 눌러 주세요.</li>'; fail(e); }
 }
@@ -1912,13 +2011,15 @@ function renderClients(){
   $('#clChips').innerHTML = names.length ? ['<button class="chip" data-mgr="" aria-pressed="' + !CL.mgr + '">전체</button>']
     .concat(names.map(m => '<button class="chip" data-mgr="' + esc(m) + '" aria-pressed="' + (CL.mgr === m) + '">' + esc(m) + ' <span class="n">' + mgrs[m] + '</span></button>')).join('') : '';
   const q = CL.q.trim().toLowerCase(), qd = q.replace(/\D/g, '');
-  const rows = list.filter(c => (!CL.mgr || clMgr(c) === CL.mgr) && (!q
+  const nOut = list.filter(c => CL.out[c.bsno]).length;
+  if (nOut) $('#clChips').innerHTML += '<button class="chip" data-out aria-pressed="' + CL.onlyOut + '">보낼 링크 <span class="n">' + nOut + '</span></button>';
+  const rows = list.filter(c => (!CL.onlyOut || CL.out[c.bsno]) && (!CL.mgr || clMgr(c) === CL.mgr) && (!q
     || [clName(c), c.f['대표자명'], c.f['회사코드']].some(v => String(v || '').toLowerCase().indexOf(q) >= 0)
     || (qd.length >= 3 && c.bsno.replace(/\D/g, '').indexOf(qd) >= 0)));
   $('#clCount').textContent = '거래처 ' + rows.length + '곳' + (rows.length !== list.length ? ' · 전체 ' + list.length + '곳' : '');
   $('#clList').innerHTML = rows.length ? rows.map(c => {
     const off = clOff(c), sub = [c.f['대표자명'], clDash('사업자등록번호', c.bsno.slice(0, 10))].filter(Boolean).join(' · ');
-    const tag = off ? '<span class="cl-tag warn">폐업</span>' : c.f['과세유형'] ? '<span class="cl-tag">' + esc(c.f['과세유형']) + '</span>' : '';
+    const tag = (CL.out[c.bsno] ? '<span class="cl-tag link">링크</span>' : '') + (off ? '<span class="cl-tag warn">폐업</span>' : c.f['과세유형'] ? '<span class="cl-tag">' + esc(c.f['과세유형']) + '</span>' : '');
     return '<li><button type="button" class="cl-row' + (off ? ' off' : '') + '" data-b="' + esc(c.bsno) + '"><span class="cl-av" aria-hidden="true">' + esc(clName(c).replace(/^\(주\)|^주식회사\s*/, '').slice(0, 1)) + '</span>'
       + '<span class="cl-t"><b>' + esc(clName(c)) + '</b><small>' + esc(sub) + '</small></span>' + tag + '</button></li>';
   }).join('') : '<li class="empty">' + (list.length ? '찾는 거래처가 없습니다.' : '등록된 거래처가 없습니다.') + '</li>';
@@ -1946,17 +2047,24 @@ function openClient(b){
   const secs = CL_GROUPS.map(g => { const r = g[1].map(kv).join(''); return r ? '<section class="cd-sec"><h3>' + esc(g[0]) + '</h3><dl style="margin:0">' + r + '</dl></section>' : ''; }).join('');
   $('#cdBody').innerHTML = '<div class="cd-head"><h2 id="cdName">' + esc(clName(c)) + '</h2><p>' + esc([clDash('사업자등록번호', c.bsno.slice(0, 10)), f['대표자명'], f['과세유형'], clOff(c) ? '폐업' : ''].filter(Boolean).join(' · ')) + '</p></div>'
     + '<div class="cd-acts">' + acts + '</div>'
+    + mpSection(b)
     + (f['메모'] ? '<div class="cd-memo"><span>메모</span>' + esc(f['메모']) + '</div>' : '')
     + secs
     + '<p class="cd-foot">' + (c.by ? '마지막 수정 ' + esc(c.by) + ' · ' + esc(new Date(c.updated).toLocaleDateString('ko-KR')) + '<br>' : '') + '수정은 PC 세무대시보드 거래처 현황에서 합니다.</p>';
   const d = $('#clientDlg'); if (!d.open) { d.showModal(); $('#cdBody').scrollTop = 0; }
+  if (CL.out[b] && CL.box[b] === undefined) mpLoad(b);
 }
 $('#clQ').addEventListener('input', e => { CL.q = e.target.value; renderClients(); });
-$('#clChips').addEventListener('click', e => { const b = e.target.closest('[data-mgr]'); if (!b) return; CL.mgr = b.dataset.mgr; renderClients(); });
+$('#clChips').addEventListener('click', e => { if (e.target.closest('[data-out]')) { CL.onlyOut = !CL.onlyOut; renderClients(); return; } const b = e.target.closest('[data-mgr]'); if (!b) return; CL.mgr = b.dataset.mgr; renderClients(); });
 $('#clList').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) openClient(b.dataset.b); });
 $('#cdBody').addEventListener('click', async e => {
   const cp = e.target.closest('[data-copy]');
   if (cp) { if (await copyText(cp.dataset.copy)) toast('복사했습니다'); return; }
+  const mk = e.target.closest('[data-mp]'); if (mk) { mpMake(mk); return; }
+  if (e.target.closest('[data-mp-reload]') && CL.cur) { CL.box[CL.cur.bsno] = undefined; openClient(CL.cur.bsno); return; }
+  const md = CL.cur && CL.made[CL.cur.bsno];
+  if (md && e.target.closest('[data-mp-copy]')) { if (await copyText(md.text)) toast('문구와 링크를 복사했습니다 — 받는 카톡방을 확인하고 붙여 넣으세요'); return; }
+  if (md && e.target.closest('[data-mp-share]')) { try { if (navigator.share) await navigator.share({ text: md.text }); else if (await copyText(md.text)) toast('공유 창이 없어 복사했습니다 — 카톡에 붙여 넣으세요'); } catch (err) { /* 공유 창을 닫음 */ } return; }
   const s = e.target.closest('[data-see]'); if (!s || !CL.cur) return;
   const b = CL.cur.bsno, k = s.dataset.see;
   s.disabled = true; s.textContent = '…';
@@ -2089,6 +2197,13 @@ function initMock(){
       { bsno:'2234567890', f:{ '상호(법인명)':'(주)바른식품', '대표자명':'이바른', '과세유형':'법인', '세무담당자':'이회계' }, updated:0, by:'' },
       { bsno:'3234567890', f:{ '상호(법인명)':'예전가게', '대표자명':'박예전', '과세유형':'간이', '세무담당자':'김세무', '폐업연월일':'2025-12-31' }, updated:0, by:'' }
     ],
+    mobileOutboxList: () => [{ key: '1234567890', name: '한빛상사', pay: 2, rep: 2, at: Date.now() }],
+    mobileOutbox: () => ({ v: 1, name: '한빛상사', bsno: '1234567890', pay: [
+      { id: 'a', kind: '국세 고지', title: '2026년 1기 부가가치세', due: d(10), ok: true, item: { title: '2026년 1기 부가가치세', amt: 554000, add: 0, due: d(10), accts: [{ bank: '데모은행', no: '000-000' }] }, msg: '[더바른 세무회계] 한빛상사 대표님\n\n납부하실 세금 안내드립니다.\n{링크}' },
+      { id: 'b', kind: '체납 세액', title: '종합소득세', due: d(20), ok: false, item: { title: '종합소득세', amt: 120000, add: 3000, due: d(20), accts: [] }, msg: '{링크}' }],
+      payAll: null, rep: { css: '', msg: '[더바른세무회계] 한빛상사 김한빛 대표님, 안녕하세요.\n\n{기간} 손익보고서를 보내 드립니다.\n\n{링크}', periods: [
+        { label: '2026년 1~9월', y: 2026, m1: 1, m2: 9, def: true, html: '<p>데모</p>' }, { label: '2026년 3분기', y: 2026, m1: 7, m2: 9, def: false, html: '<p>데모</p>' }] } }),
+    payPut: (f, bin, due) => { window.__mpLast = { f, bin, due }; return true; }, reportPut: (f, bin) => { window.__mpLast = { f, bin }; return true; },
     getSecrets: (bs, ks) => ({ [bs[0]]: Object.fromEntries(ks.map(k => [k, '(데모 값)'])) }),
     getLeave: leaveView,
     requestLeave: req => { lv.list.push({ id:'l' + (++seq), name:BOOT.me, dates:req.dates, kind:req.kind, days:req.dates.length * LEAVE_UNIT[req.kind], reason:req.reason, status:'신청', at:Date.now(), by:'', byAt:0, type:req.type }); return leaveView(); },
