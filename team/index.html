@@ -1963,6 +1963,10 @@ function mpSection(b){
     const pay = box.pay || [], rep = box.rep;
     const payRows = pay.map((x, i) => '<div class="mp-item"><div class="mp-t"><b>' + esc(x.title || x.kind) + '</b><small>' + esc(mpWon(+x.item.amt || 0) + (x.due ? ' · 기한 ' + x.due : '')) + '</small></div>'
       + (x.ok ? '<button type="button" class="mp-btn" data-mp="pay" data-i="' + i + '">링크 만들기</button>' : '<span class="mp-warn">계좌 없음</span>') + '</div>').join('');
+    /* 원천세·신고분 납부 안내(2026-11-13 2차) — 항목 하나에 납부서 여러 장일 수 있음(items) */
+    const fpay = box.fpay || [];
+    const fpRows = fpay.map((x, i) => '<div class="mp-item"><div class="mp-t"><b>' + esc(x.title || x.kind) + '</b><small>' + esc(mpWon(+x.amt || 0) + (x.items && x.items.length > 1 ? ' · 납부서 ' + x.items.length + '장' : '') + (x.due ? ' · 기한 ' + x.due : '')) + '</small></div>'
+      + (x.ok ? '<button type="button" class="mp-btn" data-mp="fpay" data-i="' + i + '">링크 만들기</button>' : '<span class="mp-warn">계좌 없음</span>') + '</div>').join('');
     const allRow = box.payAll ? '<div class="mp-item"><div class="mp-t"><b>고지·체납 한 번에</b><small>' + pay.filter(x => x.ok).length + '건 · 링크 하나</small></div><button type="button" class="mp-btn" data-mp="payall">링크 만들기</button></div>' : '';
     const per = rep && rep.periods || [];
     /* 손익 기간·부가세 기간 두 칸(2026-11-13 대표님) — 기본 = PC 결산 탭에서 고른 값. 옛 준비 파일(기간마다 html 하나)도 열림 */
@@ -1973,7 +1977,7 @@ function mpSection(b){
       + '<label class="mp-lbl" for="mpVat">부가세 기간</label><select class="select mp-sel" id="mpVat"' + (vats.length < 2 ? ' disabled' : '') + '>'
       + vats.map((v, i) => '<option value="' + i + '"' + (i === sel.v ? ' selected' : '') + '>' + esc(v.label + (v.def ? ' · 기본' : '')) + '</option>').join('') + '</select>'
       + '<button type="button" class="mp-btn" data-mp="rep">링크 만들기</button></div>' : '';
-    body = (payRows || allRow ? '<h4>납부 안내</h4>' + payRows + allRow : '') + (repRow ? '<h4>손익보고서</h4>' + repRow : '') || '<p class="mp-note">보낼 내용이 없습니다.</p>';
+    body = (payRows || allRow ? '<h4>납부 안내</h4>' + payRows + allRow : '') + (fpRows ? '<h4>신고분 납부 안내</h4>' + fpRows : '') + (repRow ? '<h4>손익보고서</h4>' + repRow : '') || '<p class="mp-note">보낼 내용이 없습니다.</p>';
   }
   const done = made ? '<div class="mp-done"><b>' + esc(made.what) + ' 링크를 만들었습니다</b><p>' + esc(made.text) + '</p><div class="mp-acts"><button type="button" class="mp-btn" data-mp-share>카톡 보내기</button><button type="button" class="mp-btn ghost" data-mp-copy>문구 복사</button></div></div>' : '';
   return '<section class="cd-sec mp"><h3>보낼 수 있는 링크</h3>' + done + body + '<p class="mp-note">PC 대시보드가 수집한 내용입니다. 링크는 이 휴대폰에서 새로 암호화해 만듭니다.</p></section>';
@@ -1992,6 +1996,7 @@ async function mpMake(btn){
   try {
     let url, text, what;
     if (kind === 'pay') { const x = box.pay[+btn.dataset.i]; url = await mpMakePay(name, [x.item], x.due); text = mpFill(x.msg, url); what = x.title || '납부 안내'; }
+    else if (kind === 'fpay') { const x = box.fpay[+btn.dataset.i]; url = await mpMakePay(name, x.items, x.due); text = mpFill(x.msg, url); what = x.title || '납부 안내'; }
     else if (kind === 'payall') { const xs = box.pay.filter(x => x.ok); url = await mpMakePay(name, xs.map(x => x.item), box.payAll.due); text = mpFill(box.payAll.msg, url); what = '고지·체납 ' + xs.length + '건'; }
     else { const sel = mpSel(b, box.rep.periods), p = box.rep.periods[sel.p], v = mpVatsOf(p)[sel.v]; url = await mpMakeReport(name, box.rep.css, v.html); text = mpFill(box.rep.msg, url, p.label); what = p.label + ' 손익보고서' + (v.label ? ' (부가세 ' + v.label + ')' : ''); }
     CL.made[b] = { url: url, text: text, what: what };
@@ -2219,6 +2224,9 @@ function initMock(){
     mobileOutbox: () => ({ v: 1, name: '한빛상사', bsno: '1234567890', pay: [
       { id: 'a', kind: '국세 고지', title: '2026년 1기 부가가치세', due: d(10), ok: true, item: { title: '2026년 1기 부가가치세', amt: 554000, add: 0, due: d(10), accts: [{ bank: '데모은행', no: '000-000' }] }, msg: '[더바른 세무회계] 한빛상사 대표님\n\n납부하실 세금 안내드립니다.\n{링크}' },
       { id: 'b', kind: '체납 세액', title: '종합소득세', due: d(20), ok: false, item: { title: '종합소득세', amt: 120000, add: 3000, due: d(20), accts: [] }, msg: '{링크}' }],
+      fpay: [{ id: 'wt|1', kind: '원천세', title: '2026년 10월 귀속분 원천세', due: d(5), amt: 330000, ok: true, msg: '{링크}', items: [ // 데모: 납부서 2장(2026-11-13 2차)
+        { title: '2026년 10월 귀속분 원천세 (1)', amt: 200000, add: 0, due: d(5), accts: [{ bank: '국민은행', no: '000-0000-0000' }], eno: '' },
+        { title: '2026년 10월 귀속분 원천세 (2)', amt: 130000, add: 0, due: d(5), accts: [{ bank: '신한은행', no: '000-000-000000' }], eno: '' }] }],
       payAll: null, rep: { css: '', msg: '[더바른세무회계] 한빛상사 김한빛 대표님, 안녕하세요.\n\n{기간} 손익보고서를 보내 드립니다.\n\n{링크}', periods: [
         { label: '2026년 1~9월', y: 2026, m1: 1, m2: 9, def: true, vats: [{ label: '3분기 (7~9월)', v1: 7, v2: 9, def: true, html: '<p>데모 3분기</p>' }, { label: '1기 (1~6월)', v1: 1, v2: 6, def: false, html: '<p>데모 1기</p>' }, { label: '손익 기간 전체 (1~9월)', v1: 1, v2: 9, def: false, html: '<p>데모 전체</p>' }] },
         { label: '2026년 3분기', y: 2026, m1: 7, m2: 9, def: false, vats: [{ label: '3분기 (7~9월)', v1: 7, v2: 9, def: true, html: '<p>데모</p>' }] }] } }),
