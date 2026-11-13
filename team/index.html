@@ -366,6 +366,15 @@ body.has-alert .wrap{padding-bottom:150px}
 .mp-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)}
 .cd-sec.mp h4+.mp-item{border-top:0}
 .mp-item.col{flex-direction:column;align-items:stretch}
+.mp-grp{border-top:1px solid var(--border)}
+.cd-sec.mp h4+.mp-grp{border-top:0}
+.mp-grp>summary{display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 0;cursor:pointer;list-style:none}
+.mp-grp>summary::-webkit-details-marker{display:none}
+.mp-grp>summary b{font-size:15px;font-weight:700}
+.mp-grp>summary small{flex:1;min-width:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mp-grp>summary::after{content:'';width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:0 6px 4px 0;transition:transform .15s}
+.mp-grp[open]>summary::after{transform:rotate(225deg);margin-bottom:-4px}
+.mp-grp>.mp-item{padding-left:10px}
 .mp-t{flex:1;min-width:0}
 .mp-t b{display:block;font-size:15px;font-weight:700;word-break:keep-all}
 .mp-t small{display:block;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -1961,12 +1970,19 @@ function mpSection(b){
   else if (box.err) body = '<p class="mp-note">' + esc(box.err) + '</p><button type="button" class="mp-btn ghost" data-mp-reload>다시 불러오기</button>';
   else {
     const pay = box.pay || [], rep = box.rep;
-    const payRows = pay.map((x, i) => '<div class="mp-item"><div class="mp-t"><b>' + esc(x.title || x.kind) + '</b><small>' + esc(mpWon(+x.item.amt || 0) + (x.due ? ' · 기한 ' + x.due : '')) + '</small></div>'
-      + (x.ok ? '<button type="button" class="mp-btn" data-mp="pay" data-i="' + i + '">링크 만들기</button>' : '<span class="mp-warn">계좌 없음</span>') + '</div>').join('');
-    /* 원천세·신고분 납부 안내(2026-11-13 2차) — 항목 하나에 납부서 여러 장일 수 있음(items) */
+    /* 납부서를 세목 종류별 묶음으로(2026-11-13 요청 '고지내역·체납내역·원천세별·부가세별, 누르면 드롭다운') — 묶음 제목을 누르면 펼침, 펼친 상태는 다시 그려도 유지 */
     const fpay = box.fpay || [];
-    const fpRows = fpay.map((x, i) => '<div class="mp-item"><div class="mp-t"><b>' + esc(x.title || x.kind) + '</b><small>' + esc(mpWon(+x.amt || 0) + (x.items && x.items.length > 1 ? ' · 납부서 ' + x.items.length + '장' : '') + (x.due ? ' · 기한 ' + x.due : '')) + '</small></div>'
-      + (x.ok ? '<button type="button" class="mp-btn" data-mp="fpay" data-i="' + i + '">링크 만들기</button>' : '<span class="mp-warn">계좌 없음</span>') + '</div>').join('');
+    const row = (t, amtTxt, ok, mp, i) => '<div class="mp-item"><div class="mp-t"><b>' + esc(t) + '</b><small>' + esc(amtTxt) + '</small></div>'
+      + (ok ? '<button type="button" class="mp-btn" data-mp="' + mp + '" data-i="' + i + '">링크 만들기</button>' : '<span class="mp-warn">계좌 없음</span>') + '</div>';
+    const pRow = ([x, i]) => row(x.title || x.kind, mpWon(+x.item.amt || 0) + (x.due ? ' · 기한 ' + x.due : ''), x.ok, 'pay', i);
+    const fRow = ([x, i]) => row(x.title || x.kind, mpWon(+x.amt || 0) + (x.items && x.items.length > 1 ? ' · 납부서 ' + x.items.length + '장' : '') + (x.due ? ' · 기한 ' + x.due : ''), x.ok, 'fpay', i);
+    const pIx = pay.map((x, i) => [x, i]), fIx = fpay.map((x, i) => [x, i]);
+    const GRP = [['notice', '고지내역', pIx.filter(([x]) => !/체납/.test(x.kind || '')), pRow, ([x]) => +x.item.amt || 0],
+      ['arrear', '체납내역', pIx.filter(([x]) => /체납/.test(x.kind || '')), pRow, ([x]) => +x.item.amt || 0],
+      ...[['wt', '원천세'], ['vat', '부가세', '부가가치세'], ['inc', '종합소득세'], ['ctax', '법인세']].map(([k, t, kind]) => [k, t, fIx.filter(([x]) => x.kind === (kind || t)), fRow, ([x]) => +x.amt || 0])];
+    const gOpen = CL.grp || (CL.grp = {});
+    const grpHtml = GRP.filter(g => g[2].length).map(g => '<details class="mp-grp" data-grp="' + g[0] + '"' + (gOpen[g[0]] ? ' open' : '') + '><summary><b>' + g[1] + '</b><small>'
+      + g[2].length + '건 · ' + mpWon(g[2].reduce((t, e) => t + g[4](e), 0)) + (g[2].some(([x]) => !x.ok) ? ' · 계좌 없음 ' + g[2].filter(([x]) => !x.ok).length : '') + '</small></summary>' + g[2].map(g[3]).join('') + '</details>').join('');
     const allRow = box.payAll ? '<div class="mp-item"><div class="mp-t"><b>고지·체납 한 번에</b><small>' + pay.filter(x => x.ok).length + '건 · 링크 하나</small></div><button type="button" class="mp-btn" data-mp="payall">링크 만들기</button></div>' : '';
     const per = rep && rep.periods || [];
     /* 손익 기간·부가세 기간 두 칸(2026-11-13 대표님) — 기본 = PC 결산 탭에서 고른 값. 옛 준비 파일(기간마다 html 하나)도 열림 */
@@ -1977,7 +1993,7 @@ function mpSection(b){
       + '<label class="mp-lbl" for="mpVat">부가세 기간</label><select class="select mp-sel" id="mpVat"' + (vats.length < 2 ? ' disabled' : '') + '>'
       + vats.map((v, i) => '<option value="' + i + '"' + (i === sel.v ? ' selected' : '') + '>' + esc(v.label + (v.def ? ' · 기본' : '')) + '</option>').join('') + '</select>'
       + '<button type="button" class="mp-btn" data-mp="rep">링크 만들기</button></div>' : '';
-    body = (payRows || allRow ? '<h4>납부 안내</h4>' + payRows + allRow : '') + (fpRows ? '<h4>신고분 납부 안내</h4>' + fpRows : '') + (repRow ? '<h4>손익보고서</h4>' + repRow : '') || '<p class="mp-note">보낼 내용이 없습니다.</p>';
+    body = (grpHtml || allRow ? '<h4>납부서</h4>' + grpHtml + allRow : '') + (repRow ? '<h4>손익보고서</h4>' + repRow : '') || '<p class="mp-note">보낼 내용이 없습니다.</p>';
   }
   const done = made ? '<div class="mp-done"><b>' + esc(made.what) + ' 링크를 만들었습니다</b><p>' + esc(made.text) + '</p><div class="mp-acts"><button type="button" class="mp-btn" data-mp-share>카톡 보내기</button><button type="button" class="mp-btn ghost" data-mp-copy>문구 복사</button></div></div>' : '';
   return '<section class="cd-sec mp"><h3>보낼 수 있는 링크</h3>' + done + body + '<p class="mp-note">PC 대시보드가 수집한 내용입니다. 링크는 이 휴대폰에서 새로 암호화해 만듭니다.</p></section>';
@@ -2074,6 +2090,7 @@ function openClient(b){
 }
 $('#clQ').addEventListener('input', e => { CL.q = e.target.value; renderClients(); });
 $('#clChips').addEventListener('click', e => { if (e.target.closest('[data-out]')) { CL.onlyOut = !CL.onlyOut; renderClients(); return; } const b = e.target.closest('[data-mgr]'); if (!b) return; CL.mgr = b.dataset.mgr; renderClients(); });
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.matches && d.matches('details.mp-grp')) (CL.grp || (CL.grp = {}))[d.dataset.grp] = d.open; }, true); /* 납부서 묶음 펼침 기억 */
 $('#clList').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) openClient(b.dataset.b); });
 $('#cdBody').addEventListener('click', async e => {
   const cp = e.target.closest('[data-copy]');
