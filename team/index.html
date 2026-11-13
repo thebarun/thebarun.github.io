@@ -1886,7 +1886,8 @@ const CL_LABEL = { '대시보드담당': '담당', '월기장료': '월 기장�
 const CL_TEL = { '대표자핸드폰번호': 1, '사업장전화번호': 1, '담당자연락처': 1, '자택/본점번화번호': 1 };
 const clDash = (k, v) => { const d = String(v).replace(/\D/g, ''); if (k === '사업자등록번호' && d.length === 10) return d.replace(/^(\d{3})(\d{2})(\d{5})$/, '$1-$2-$3'); if ((k === '법인등록번호' || k === '대표자주민등록번호') && d.length === 13) return d.slice(0, 6) + '-' + d.slice(6); return String(v); };
 const clMgr = c => c.f['대시보드담당'] || '미지정'; // 담당 = PC 거래처 현황의 담당 지정만(PC 가 팀 서버 '대시보드담당' 칸에 적음, 대표님 지시 — 세무사랑 세무담당자는 안 씀)
-const clName = c => c.f['상호(법인명)'] || c.f['대표자명'] || '상호 없음'; // 홈택스 정보조회만 넣은 줄 — PC 대시보드가 거래처 목록 이름으로 채움(fillServerNames)
+const clReal = v => !!String(v || '').trim() && !/^[\d\s-]+$/.test(String(v)); // 숫자뿐이면 이름 아님(사업자번호를 상호 대신 쓴 것)
+const clName = c => (clReal(c.f['상호(법인명)']) && c.f['상호(법인명)']) || c.f['대표자명'] || '상호 없음'; // 홈택스 정보조회만 넣은 줄 — PC 대시보드가 거래처 목록 이름으로 채움(fillServerNames)
 const clOff = c => !!c.f['폐업연월일'] || /폐업/.test(c.f['사업자상태'] || '');
 const CL = { list: null, mgr: '', q: '', seen: {}, cur: null };
 async function loadClients(force){
@@ -1898,7 +1899,7 @@ async function loadClients(force){
       Object.keys(c.f || {}).forEach(k => { f[k.replace(/\s+/g, '')] = String(c.f[k] == null ? '' : c.f[k]); });
       CL_SECRET.forEach(k => { if (f[k]) f[k] = CL_ON; }); // 대표·관리자도 [보기] 전에는 가림
       return { bsno: String(c.bsno), f: f, updated: c.updated, by: c.by };
-    }).sort((a, b) => (clOff(a) - clOff(b)) || clName(a).localeCompare(clName(b), 'ko'));
+    }).filter(c => (clReal(c.f['상호(법인명)']) || clReal(c.f['대표자명'])) && !c.f['삭제'] && !c.f['완전삭제']) // PC 거래처 현황과 같게 — 이름 없는 줄(홈택스 정보조회만 넣은 줄)·지운 거래처는 뺌.sort((a, b) => (clOff(a) - clOff(b)) || clName(a).localeCompare(clName(b), 'ko'));
     CL.seen = {};
     renderClients();
   } catch (e) { $('#clList').innerHTML = '<li class="empty">거래처를 불러오지 못했습니다. 새로고침을 눌러 주세요.</li>'; fail(e); }
