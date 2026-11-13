@@ -1869,7 +1869,7 @@ $('#leaveForm').addEventListener('submit', async e => {
 
 // ───── 거래처(2026-11-13 대표님 — 읽기 전용) ─────
 // 팀 서버 getClients 그대로. 비밀 4칸은 받자마자 '＊있음'으로 바꿔 두고, [보기]를 누를 때만 getSecrets(서버 '열람기록'에 남음 — PC 상세창과 같음)
-// 담당 = PC 대시보드 담당 지정(PC 가 팀 서버 '대시보드담당' 칸에 적음) → 없으면 세무사랑 '세무담당자'
+// 담당 = PC 거래처 현황의 담당 지정(PC 가 팀 서버 '대시보드담당' 칸에 적음), 없으면 '미지정'
 const CL_SECRET = ['대표자주민등록번호', '법인등록번호', '국세환급금계좌', '홈택스비밀번호'], CL_ON = '＊있음';
 const CL_GROUPS = [
   ['기장료·홈택스', ['월기장료', '기장수임일', '기장해임일', '홈택스아이디', '홈택스비밀번호']],
@@ -1885,7 +1885,7 @@ const CL_LABEL = { '대시보드담당': '담당', '월기장료': '월 기장�
   '대표자핸드폰번호': '대표자 휴대폰', '국세환급금계좌': '환급계좌', '국세환급금은행': '환급은행', '전자(세금)계산서의무발행': '전자계산서 의무', '관할서담당자(전화)': '관할서 담당자', '성실신고확인대상': '성실신고 대상', '결산월': '결산월(법인)' };
 const CL_TEL = { '대표자핸드폰번호': 1, '사업장전화번호': 1, '담당자연락처': 1, '자택/본점번화번호': 1 };
 const clDash = (k, v) => { const d = String(v).replace(/\D/g, ''); if (k === '사업자등록번호' && d.length === 10) return d.replace(/^(\d{3})(\d{2})(\d{5})$/, '$1-$2-$3'); if ((k === '법인등록번호' || k === '대표자주민등록번호') && d.length === 13) return d.slice(0, 6) + '-' + d.slice(6); return String(v); };
-const clMgr = c => c.f['대시보드담당'] || c.f['세무담당자'] || ''; // 담당 = PC 대시보드 담당 지정(팀 서버에 적어 둔 것) → 없으면 세무사랑 세무담당자
+const clMgr = c => c.f['대시보드담당'] || '미지정'; // 담당 = PC 거래처 현황의 담당 지정만(PC 가 팀 서버 '대시보드담당' 칸에 적음, 대표님 지시 — 세무사랑 세무담당자는 안 씀)
 const clName = c => c.f['상호(법인명)'] || c.f['대표자명'] || '상호 없음'; // 홈택스 정보조회만 넣은 줄 — PC 대시보드가 거래처 목록 이름으로 채움(fillServerNames)
 const clOff = c => !!c.f['폐업연월일'] || /폐업/.test(c.f['사업자상태'] || '');
 const CL = { list: null, mgr: '', q: '', seen: {}, cur: null };
@@ -1907,7 +1907,7 @@ function renderClients(){
   const list = CL.list || [];
   const mgrs = {};
   list.forEach(c => { const m = clMgr(c); if (m) mgrs[m] = (mgrs[m] || 0) + 1; });
-  const names = Object.keys(mgrs).sort((a, b) => (b === S.me) - (a === S.me) || mgrs[b] - mgrs[a]);
+  const names = Object.keys(mgrs).sort((a, b) => (b === S.me) - (a === S.me) || (a === '미지정') - (b === '미지정') || mgrs[b] - mgrs[a]);
   $('#clChips').innerHTML = names.length ? ['<button class="chip" data-mgr="" aria-pressed="' + !CL.mgr + '">전체</button>']
     .concat(names.map(m => '<button class="chip" data-mgr="' + esc(m) + '" aria-pressed="' + (CL.mgr === m) + '">' + esc(m) + ' <span class="n">' + mgrs[m] + '</span></button>')).join('') : '';
   const q = CL.q.trim().toLowerCase(), qd = q.replace(/\D/g, '');
