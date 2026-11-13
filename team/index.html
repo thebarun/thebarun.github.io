@@ -369,8 +369,9 @@ body.has-alert .wrap{padding-bottom:150px}
 .mp-t{flex:1;min-width:0}
 .mp-t b{display:block;font-size:15px;font-weight:700;word-break:keep-all}
 .mp-t small{display:block;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.mp-pick{display:flex;gap:8px}
-.mp-pick .select{flex:1;height:44px;font-size:15px}
+.mp-lbl{display:block;margin:10px 0 4px;font-size:13px;font-weight:600;color:var(--muted)}
+.mp-sel{width:100%;height:44px;font-size:15px}
+.mp-item.col>.mp-btn{margin-top:12px}
 .mp-btn{flex:none;height:44px;padding:0 16px;border-radius:12px;border:0;background:var(--primary);color:var(--on-primary);font-size:15px;font-weight:700}
 .mp-btn.ghost{background:var(--primary-soft);color:var(--primary)}
 .mp-btn:disabled{opacity:.6}
@@ -1914,7 +1915,7 @@ const clMgr = c => c.f['대시보드담당'] || '미지정'; // 담당 = PC 거�
 const clReal = v => !!String(v || '').trim() && !/^[\d\s-]+$/.test(String(v)); // 숫자뿐이면 이름 아님(사업자번호를 상호 대신 쓴 것)
 const clName = c => (clReal(c.f['상호(법인명)']) && c.f['상호(법인명)']) || c.f['대표자명'] || '상호 없음'; // 홈택스 정보조회만 넣은 줄 — PC 대시보드가 거래처 목록 이름으로 채움(fillServerNames)
 const clOff = c => !!c.f['폐업연월일'] || /폐업/.test(c.f['사업자상태'] || '');
-const CL = { list: null, mgr: '', q: '', seen: {}, cur: null, out: {}, box: {}, made: {}, onlyOut: false };
+const CL = { list: null, mgr: '', q: '', seen: {}, cur: null, out: {}, box: {}, made: {}, pick: {}, onlyOut: false };
 // ───── 휴대폰 링크 전달(2026-11-13 대표님 — docs\휴대폰_링크전달_설계.md, 전송 규칙 13번) ─────
 // PC 대시보드가 팀 서버에 둔 '보낼 내용'(mobileOutbox)을 받아, 이 브라우저 안에서 건마다 새 22자 표로 AES-256-GCM 암호화 → payPut·reportPut 으로 암호문만 올림.
 // 표는 링크 # 뒤에만 — PC 대시보드(24f sealPayNotice·payTokenParts·randPayToken)와 같은 계산이라 거래처 화면(thebaruntax.kr/#, /report/#)은 그대로 열림
@@ -1946,6 +1947,12 @@ async function mpMakeReport(name, css, html){
 }
 const mpWon = n => (Math.round(+n || 0)).toLocaleString('ko-KR') + '원';
 const mpFill = (tpl, url, period) => { const s = String(tpl || '{링크}').split('{기간}').join(period || ''); return s.indexOf('{링크}') >= 0 ? s.split('{링크}').join(url) : s + '\n\n' + url; };
+const mpVatsOf = p => (p && p.vats && p.vats.length ? p.vats : p ? [{ label: '', def: true, html: p.html }] : []);
+function mpSel(b, per){ /* 고른 칸(화면을 다시 그려도 유지) — 처음엔 기본 표시가 있는 것 */
+  const cur = CL.pick[b] || {}, dp = Math.max(0, per.findIndex(p => p.def));
+  const p = cur.p != null && per[cur.p] ? cur.p : dp, vs = mpVatsOf(per[p]), dv = Math.max(0, vs.findIndex(v => v.def));
+  return { p: p, v: cur.v != null && cur.p === p && vs[cur.v] ? cur.v : dv };
+}
 function mpSection(b){
   if (!CL.out[b]) return '';
   const box = CL.box[b], made = CL.made[b];
@@ -1958,8 +1965,14 @@ function mpSection(b){
       + (x.ok ? '<button type="button" class="mp-btn" data-mp="pay" data-i="' + i + '">링크 만들기</button>' : '<span class="mp-warn">계좌 없음</span>') + '</div>').join('');
     const allRow = box.payAll ? '<div class="mp-item"><div class="mp-t"><b>고지·체납 한 번에</b><small>' + pay.filter(x => x.ok).length + '건 · 링크 하나</small></div><button type="button" class="mp-btn" data-mp="payall">링크 만들기</button></div>' : '';
     const per = rep && rep.periods || [];
-    const repRow = per.length ? '<div class="mp-item col"><div class="mp-t"><small>기간을 고른 뒤 만드세요(기본 = PC 결산 탭에서 고른 기간)</small></div><div class="mp-pick"><select class="select" id="mpPer" aria-label="보고서 기간">'
-      + per.map((p, i) => '<option value="' + i + '"' + (p.def ? ' selected' : '') + '>' + esc(p.label + (p.def ? ' · 기본' : '')) + '</option>').join('') + '</select><button type="button" class="mp-btn" data-mp="rep">링크 만들기</button></div></div>' : '';
+    /* 손익 기간·부가세 기간 두 칸(2026-11-13 대표님) — 기본 = PC 결산 탭에서 고른 값. 옛 준비 파일(기간마다 html 하나)도 열림 */
+    const sel = mpSel(b, per), vats = per.length ? mpVatsOf(per[sel.p]) : [];
+    const repRow = per.length ? '<div class="mp-item col"><div class="mp-t"><small>기간을 고른 뒤 만드세요(기본 = PC 결산 탭에서 고른 값)</small></div>'
+      + '<label class="mp-lbl" for="mpPer">손익 기간</label><select class="select mp-sel" id="mpPer">'
+      + per.map((p, i) => '<option value="' + i + '"' + (i === sel.p ? ' selected' : '') + '>' + esc(p.label + (p.def ? ' · 기본' : '')) + '</option>').join('') + '</select>'
+      + '<label class="mp-lbl" for="mpVat">부가세 기간</label><select class="select mp-sel" id="mpVat"' + (vats.length < 2 ? ' disabled' : '') + '>'
+      + vats.map((v, i) => '<option value="' + i + '"' + (i === sel.v ? ' selected' : '') + '>' + esc(v.label + (v.def ? ' · 기본' : '')) + '</option>').join('') + '</select>'
+      + '<button type="button" class="mp-btn" data-mp="rep">링크 만들기</button></div>' : '';
     body = (payRows || allRow ? '<h4>납부 안내</h4>' + payRows + allRow : '') + (repRow ? '<h4>손익보고서</h4>' + repRow : '') || '<p class="mp-note">보낼 내용이 없습니다.</p>';
   }
   const done = made ? '<div class="mp-done"><b>' + esc(made.what) + ' 링크를 만들었습니다</b><p>' + esc(made.text) + '</p><div class="mp-acts"><button type="button" class="mp-btn" data-mp-share>카톡 보내기</button><button type="button" class="mp-btn ghost" data-mp-copy>문구 복사</button></div></div>' : '';
@@ -1980,7 +1993,7 @@ async function mpMake(btn){
     let url, text, what;
     if (kind === 'pay') { const x = box.pay[+btn.dataset.i]; url = await mpMakePay(name, [x.item], x.due); text = mpFill(x.msg, url); what = x.title || '납부 안내'; }
     else if (kind === 'payall') { const xs = box.pay.filter(x => x.ok); url = await mpMakePay(name, xs.map(x => x.item), box.payAll.due); text = mpFill(box.payAll.msg, url); what = '고지·체납 ' + xs.length + '건'; }
-    else { const p = box.rep.periods[+(($('#mpPer') || {}).value || 0)]; url = await mpMakeReport(name, box.rep.css, p.html); text = mpFill(box.rep.msg, url, p.label); what = p.label + ' 손익보고서'; }
+    else { const sel = mpSel(b, box.rep.periods), p = box.rep.periods[sel.p], v = mpVatsOf(p)[sel.v]; url = await mpMakeReport(name, box.rep.css, v.html); text = mpFill(box.rep.msg, url, p.label); what = p.label + ' 손익보고서' + (v.label ? ' (부가세 ' + v.label + ')' : ''); }
     CL.made[b] = { url: url, text: text, what: what };
     openClient(b);
   } catch (e) { btn.disabled = false; btn.textContent = old; fail(e); }
@@ -2073,6 +2086,11 @@ $('#cdBody').addEventListener('click', async e => {
     CL.seen[b] = Object.assign({}, CL.seen[b], (r || {})[b] || {});
     if (CL.cur && CL.cur.bsno === b) openClient(b);
   } catch (err) { s.disabled = false; s.textContent = '보기'; fail(err); }
+});
+$('#cdBody').addEventListener('change', e => { /* 손익 기간을 바꾸면 그 기간의 부가세 기간 칸을 다시 채움 */
+  const b = CL.cur && CL.cur.bsno; if (!b) return;
+  if (e.target.id === 'mpPer') { CL.pick[b] = { p: +e.target.value, v: null }; openClient(b); }
+  else if (e.target.id === 'mpVat') CL.pick[b] = { p: +$('#mpPer').value, v: +e.target.value };
 });
 $('#clientDlg').addEventListener('close', () => { CL.cur = null; });
 
@@ -2202,7 +2220,8 @@ function initMock(){
       { id: 'a', kind: '국세 고지', title: '2026년 1기 부가가치세', due: d(10), ok: true, item: { title: '2026년 1기 부가가치세', amt: 554000, add: 0, due: d(10), accts: [{ bank: '데모은행', no: '000-000' }] }, msg: '[더바른 세무회계] 한빛상사 대표님\n\n납부하실 세금 안내드립니다.\n{링크}' },
       { id: 'b', kind: '체납 세액', title: '종합소득세', due: d(20), ok: false, item: { title: '종합소득세', amt: 120000, add: 3000, due: d(20), accts: [] }, msg: '{링크}' }],
       payAll: null, rep: { css: '', msg: '[더바른세무회계] 한빛상사 김한빛 대표님, 안녕하세요.\n\n{기간} 손익보고서를 보내 드립니다.\n\n{링크}', periods: [
-        { label: '2026년 1~9월', y: 2026, m1: 1, m2: 9, def: true, html: '<p>데모</p>' }, { label: '2026년 3분기', y: 2026, m1: 7, m2: 9, def: false, html: '<p>데모</p>' }] } }),
+        { label: '2026년 1~9월', y: 2026, m1: 1, m2: 9, def: true, vats: [{ label: '3분기 (7~9월)', v1: 7, v2: 9, def: true, html: '<p>데모 3분기</p>' }, { label: '1기 (1~6월)', v1: 1, v2: 6, def: false, html: '<p>데모 1기</p>' }, { label: '손익 기간 전체 (1~9월)', v1: 1, v2: 9, def: false, html: '<p>데모 전체</p>' }] },
+        { label: '2026년 3분기', y: 2026, m1: 7, m2: 9, def: false, vats: [{ label: '3분기 (7~9월)', v1: 7, v2: 9, def: true, html: '<p>데모</p>' }] }] } }),
     payPut: (f, bin, due) => { window.__mpLast = { f, bin, due }; return true; }, reportPut: (f, bin) => { window.__mpLast = { f, bin }; return true; },
     getSecrets: (bs, ks) => ({ [bs[0]]: Object.fromEntries(ks.map(k => [k, '(데모 값)'])) }),
     getLeave: leaveView,
