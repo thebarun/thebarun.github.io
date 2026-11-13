@@ -371,6 +371,7 @@ const Pill = ({
 }) => React.createElement("button", {
   className: active ? "pill on" : "pill",
   onClick: onClick,
+  "aria-pressed": !!active,
   style: {
     border: "1px solid transparent",
     background: active ? color || C.accent : C.soft,
@@ -2957,7 +2958,7 @@ function MinWageCalc() {
       color: r.ok ? C.ok : C.warn,
       border: `1px solid ${r.ok ? C.ok : C.warn}55`
     }
-  }, r.ok ? "✅ 최저임금 이상입니다" : `⚠ 최저임금 위반 — ${s.unit === "hour" ? "시간당" : "월"} ${won(r.short)}원 부족`), React.createElement("table", {
+  }, r.ok ? "✓ 최저임금 이상입니다" : `⚠ 최저임금 위반 — ${s.unit === "hour" ? "시간당" : "월"} ${won(r.short)}원 부족`), React.createElement("table", {
     style: {
       width: "100%",
       borderCollapse: "collapse",
@@ -3248,7 +3249,7 @@ function JuhyuCalc() {
       fontWeight: 600,
       color: w.paid ? C.ok : w.st === "part" ? "#B7791F" : C.warn
     }
-  }, w.st === "part" ? w.paid ? "△ 지급" : "△ 미지급" : w.paid ? "✅ 대상" : "❌ 대상 아님"), React.createElement("td", {
+  }, w.st === "part" ? w.paid ? "△ 지급" : "△ 미지급" : w.paid ? "✓ 대상" : "대상 아님"), React.createElement("td", {
     style: {
       ...calcTd,
       color: "#26363F",
