@@ -2155,13 +2155,14 @@ S.token = tokGet();
 const IDLE_MS = 60 * 60000, ACT = 'tdb.act.' + BOOT.key;
 let actLast = 0;
 const actGet = () => { try { return Number(localStorage.getItem(ACT) || 0); } catch (e) { return 0; } };
-const actMark = (force) => { const n = Date.now(); if (!force && n - actLast < 15000) return; actLast = n; try { localStorage.setItem(ACT, String(n)); } catch (e) {} };
-const idleOut = () => { S.token = ''; tokSet(''); try { localStorage.removeItem(ACT); } catch (e) {} showLogin(); $('#loginErr').textContent = '1시간 동안 사용이 없어 로그아웃했습니다.'; };
+const actMark = (force) => { if (!force && actGet() === 1) { idleCheck(); return; } const n = Date.now(); if (!force && n - actLast < 15000) return; actLast = n; try { localStorage.setItem(ACT, String(n)); } catch (e) {} };
+const idleOut = () => { S.token = ''; tokSet(''); try { localStorage.setItem(ACT, '1'); } catch (e) {} /* 1 = 로그아웃함 — 다른 탭도 같이, 다시 로그인하면 지금 시각으로 */ showLogin(); $('#loginErr').textContent = '1시간 동안 사용이 없어 로그아웃했습니다.'; };
 const idleCheck = () => { if (!S.token) return; const a = actGet(); if (a && Date.now() - a >= IDLE_MS) idleOut(); };
 if (S.token && actGet() && Date.now() - actGet() >= IDLE_MS) { S.token = ''; tokSet(''); try { localStorage.removeItem(ACT); } catch (e) {} }
 if (S.token) actMark(true);
 ['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev => window.addEventListener(ev, () => { if (S.token) actMark(); }, { capture: true, passive: true }));
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') idleCheck(); });
+window.addEventListener('storage', e => { if (e.key === ACT) idleCheck(); }); /* 다른 탭이 로그아웃하면 바로 */
 setInterval(idleCheck, 60000);
 window.__teamIdle = { check: idleCheck }; // 시험용
 // 지난번 연결 문제로 못 한 저장은 열자마자 다시 시도 (권한 문제 등은 그대로 두고 알림만)
