@@ -815,9 +815,14 @@ function callAs(fn, opId, args){
     throw e;
   });
 }
+/* 팀 서버 연결 오류의 영어 원문을 한국어로(2026-11-14 — PC 대시보드 teamErrMsg 와 같은 글) */
+function errText(e){
+  const m = String((e && e.message) || e || '');
+  return /networkerror|failed to fetch|load failed|http 0|connection failure/i.test(m) ? '팀 서버에 연결하지 못했습니다 — 인터넷 연결을 확인하고 잠시 뒤 다시 해 주세요' : m;
+}
 function fail(err){
   const m = (err && err.message) || '';
-  if (m.indexOf('LOGIN_REQUIRED') < 0) toast(m || '오류가 발생했습니다');
+  if (m.indexOf('LOGIN_REQUIRED') < 0) toast(errText(m) || '오류가 발생했습니다');
 }
 
 let toastT;
@@ -1561,7 +1566,7 @@ $('#loginForm').addEventListener('submit', async e => {
     $('#loginView').hidden = true; $('#pinIn').value = '';
     load(false); pump(); startLeave();
   } catch (err) {
-    $('#loginErr').textContent = err.message || '로그인하지 못했습니다'; $('#pinIn').value = ''; $('#pinIn').focus();
+    $('#loginErr').textContent = errText(err) || '로그인하지 못했습니다'; $('#pinIn').value = ''; $('#pinIn').focus();
   } finally { $('#loginBtn').disabled = false; }
 });
 
@@ -1707,7 +1712,7 @@ function renderAccess(){
 async function loadAccess(){
   AL = { rows: AL && AL.rows }; renderAccess();
   try { const r = await call('getAccessLog', 1000); AL = { rows: Array.isArray(r) ? r : [] }; }
-  catch (e) { const m = (e && e.message) || ''; AL = { err: /지원하지 않는|is not a function|not found/i.test(m) ? '팀 서버가 아직 새 판이 아닙니다(몇 분 뒤 자동 배포).' : m.indexOf('LOGIN_REQUIRED') >= 0 ? '다시 로그인해 주세요' : (m || '불러오지 못했습니다') }; }
+  catch (e) { const m = (e && e.message) || ''; AL = { err: /지원하지 않는|is not a function|not found/i.test(m) ? '팀 서버가 아직 새 판이 아닙니다(몇 분 뒤 자동 배포).' : m.indexOf('LOGIN_REQUIRED') >= 0 ? '다시 로그인해 주세요' : (errText(m) || '불러오지 못했습니다') }; }
   renderAccess();
 }
 $('#alReload').addEventListener('click', loadAccess);
@@ -1899,7 +1904,7 @@ $('#leaveForm').addEventListener('submit', async e => {
   $('#lvSave').disabled = false;
   if (!m) { $('#leaveDlg').close(); toast(ed ? '휴가를 고쳤습니다' : fmtDates(ds) + ' 신청했습니다 — 승인 후 확정됩니다'); return; }
   if (m.indexOf('LOGIN_REQUIRED') >= 0) $('#leaveDlg').close(); // 로그인 화면이 창 뒤에 가리지 않게
-  else $('#lvErr').textContent = m;
+  else $('#lvErr').textContent = errText(m);
 });
 
 // ───── 거래처(2026-11-13 대표님 — 읽기 전용) ─────
@@ -2004,7 +2009,7 @@ async function mpLoad(b){
   if (CL.box[b] && !CL.box[b].err) return;
   CL.box[b] = null;
   try { CL.box[b] = await call('mobileOutbox', b) || { err: '보낼 내용이 없습니다.' }; }
-  catch (e) { CL.box[b] = { err: (e && e.message) || '불러오지 못했습니다.' }; }
+  catch (e) { CL.box[b] = { err: errText(e) || '불러오지 못했습니다.' }; }
   if (CL.cur && CL.cur.bsno === b) openClient(b);
 }
 async function mpMake(btn){
