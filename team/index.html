@@ -244,6 +244,7 @@ body.has-alert .wrap{padding-bottom:150px}
 .login-card p{margin:0 0 18px;color:var(--muted);font-size:14px}
 .pin-in{width:100%;height:56px;text-align:center;font-size:28px;letter-spacing:.5em;padding-left:.5em;font-variant-numeric:tabular-nums}
 .login-card .btn{width:100%;height:48px;margin-top:12px;font-size:16px}
+.login-card a.btn{display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;border:1px solid var(--border);background:var(--surface)}
 .login-err{min-height:20px;margin-top:10px;color:var(--danger);font-size:13px;font-weight:600}
 /* 업무 / 휴가 / 멤버 관리(멤버 관리는 대표·관리자만) */
 .cal-head{display:flex;align-items:center;gap:6px;margin-bottom:12px}
@@ -611,6 +612,7 @@ body.has-alert .wrap{padding-bottom:150px}
     <p id="loginWho"></p>
     <input id="pinIn" class="input pin-in" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" aria-label="비밀번호 4자리" autocomplete="current-password" required>
     <button class="btn primary" type="submit" id="loginBtn">들어가기</button>
+    <a class="btn ghost" id="loginGoogle" href="https://dash.thebaruntax.kr/__teamgo" target="_top" rel="noopener">구글 계정으로 로그인</a><!-- 2026-11-14 요청: 구글 로그인(4자리는 비상용) — 웹판에서 구글 확인 뒤 이 화면으로 돌아옴 -->
     <div class="login-err" id="loginErr" role="alert"></div>
   </form>
 </div>
@@ -2307,6 +2309,9 @@ if (DEMO) initMock();
     };
     document.getElementById('c').focus();
   }
+  // 구글 로그인으로 돌아옴(2026-11-14): #열쇠&t=로그인표 — 표를 그 열쇠 이름(tdb.tok.열쇠)으로 저장하고 주소는 #열쇠 만 남김(방문 기록·화면에 표가 안 남게)
+  var hm = /^#([0-9a-z_-]{8,64})&t=([0-9A-Za-z_.=-]{1,200})$/i.exec(location.hash);
+  if (hm) { try { localStorage.setItem('tdb.tok.' + hm[1], hm[2]); } catch (e) {} try { history.replaceState(null, '', location.pathname + location.search + '#' + hm[1]); } catch (e) { location.hash = hm[1]; } }
   var fromLink = location.hash.replace(/^#/, '');
   var key = fromLink || recalled();
   if (!key) return ask('');
