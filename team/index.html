@@ -1564,7 +1564,7 @@ $('#loginForm').addEventListener('submit', async e => {
   if (!/^[0-9]{4}$/.test(pin)) { $('#loginErr').textContent = '숫자 4자리를 입력하세요'; return; }
   $('#loginBtn').disabled = true;
   try {
-    S.token = await call('login', pin); tokSet(S.token);
+    S.token = await call('login', pin); tokSet(S.token); actMark(true);
     $('#loginView').hidden = true; $('#pinIn').value = '';
     load(false); pump(); startLeave();
   } catch (err) {
@@ -2151,6 +2151,19 @@ $('#viewTabs [data-view="members"]').hidden = !CAN_MANAGE;
 $('#loginTitle').textContent = BOOT.title;
 $('#loginWho').textContent = S.me + '님, 접속 비밀번호 4자리를 입력하세요';
 S.token = tokGet();
+/* 1시간 동안 손대지 않으면 로그아웃(2026-11-14 요청): 마지막 손댄 시각(이 기기, tdb.act.열쇠)을 저장해 다시 열 때도 봄. 저장 못 한 작업(outbox)은 그대로 둠 */
+const IDLE_MS = 60 * 60000, ACT = 'tdb.act.' + BOOT.key;
+let actLast = 0;
+const actGet = () => { try { return Number(localStorage.getItem(ACT) || 0); } catch (e) { return 0; } };
+const actMark = (force) => { const n = Date.now(); if (!force && n - actLast < 15000) return; actLast = n; try { localStorage.setItem(ACT, String(n)); } catch (e) {} };
+const idleOut = () => { S.token = ''; tokSet(''); try { localStorage.removeItem(ACT); } catch (e) {} showLogin(); $('#loginErr').textContent = '1시간 동안 사용이 없어 로그아웃했습니다.'; };
+const idleCheck = () => { if (!S.token) return; const a = actGet(); if (a && Date.now() - a >= IDLE_MS) idleOut(); };
+if (S.token && actGet() && Date.now() - actGet() >= IDLE_MS) { S.token = ''; tokSet(''); try { localStorage.removeItem(ACT); } catch (e) {} }
+if (S.token) actMark(true);
+['pointerdown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(ev => window.addEventListener(ev, () => { if (S.token) actMark(); }, { capture: true, passive: true }));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') idleCheck(); });
+setInterval(idleCheck, 60000);
+window.__teamIdle = { check: idleCheck }; // 시험용
 // 지난번 연결 문제로 못 한 저장은 열자마자 다시 시도 (권한 문제 등은 그대로 두고 알림만)
 revive(true); saveOut();
 if (S.token) { restoreSnap(); load(false); pump(); startLeave(); } else showLogin();
@@ -2311,7 +2324,7 @@ if (DEMO) initMock();
   }
   // 구글 로그인으로 돌아옴(2026-11-14): #열쇠&t=로그인표 — 표를 그 열쇠 이름(tdb.tok.열쇠)으로 저장하고 주소는 #열쇠 만 남김(방문 기록·화면에 표가 안 남게)
   var hm = /^#([0-9a-z_-]{8,64})&t=([0-9A-Za-z_.=-]{1,200})$/i.exec(location.hash);
-  if (hm) { try { localStorage.setItem('tdb.tok.' + hm[1], hm[2]); } catch (e) {} try { history.replaceState(null, '', location.pathname + location.search + '#' + hm[1]); } catch (e) { location.hash = hm[1]; } }
+  if (hm) { try { localStorage.setItem('tdb.tok.' + hm[1], hm[2]); localStorage.setItem('tdb.act.' + hm[1], String(Date.now())); } catch (e) {} try { history.replaceState(null, '', location.pathname + location.search + '#' + hm[1]); } catch (e) { location.hash = hm[1]; } }
   var fromLink = location.hash.replace(/^#/, '');
   var key = fromLink || recalled();
   if (!key) return ask('');
