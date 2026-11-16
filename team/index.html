@@ -244,7 +244,7 @@ body.has-alert .wrap{padding-bottom:150px}
 .login-card p{margin:0 0 18px;color:var(--muted);font-size:14px}
 .pin-in{width:100%;height:56px;text-align:center;font-size:28px;letter-spacing:.5em;padding-left:.5em;font-variant-numeric:tabular-nums}
 .login-card .btn{width:100%;height:48px;margin-top:12px;font-size:16px}
-.login-card a.btn{display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;border:1px solid var(--border);background:var(--surface)}
+.login-card a.btn{display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box}
 .login-err{min-height:20px;margin-top:10px;color:var(--danger);font-size:13px;font-weight:600}
 /* 업무 / 휴가 / 멤버 관리(멤버 관리는 대표·관리자만) */
 .cal-head{display:flex;align-items:center;gap:6px;margin-bottom:12px}
@@ -582,7 +582,7 @@ body.has-alert .wrap{padding-bottom:150px}
   <div id="membersView" class="members-wrap" hidden>
     <section class="card" aria-labelledby="hMembers">
       <div class="card-head"><h2 id="hMembers"><svg class="i"><use href="#i-users"/></svg>팀원 <span class="count" id="memCount"></span></h2></div>
-      <p class="space-desc" style="margin-bottom:8px">각자에게 자기 링크만 보내세요. 비밀번호는 링크와 따로 알려주세요.</p>
+      <p class="space-desc" style="margin-bottom:8px">휴대폰은 구글 계정으로만 로그인합니다. 팀원마다 [정보]에서 구글 계정을 연결해 두세요.</p>
       <ul class="members" id="memberList"><li class="skel"></li><li class="skel"></li></ul>
       <form id="memAdd" class="quick" autocomplete="off">
         <input id="memName" class="input" placeholder="새 팀원 이름 (예: 김세무)" aria-label="새 팀원 이름" maxlength="20" required>
@@ -591,7 +591,7 @@ body.has-alert .wrap{padding-bottom:150px}
     </section>
     <section class="card" aria-labelledby="hPin">
       <div class="card-head"><h2 id="hPin"><svg class="i"><use href="#i-lock"/></svg>접속 비밀번호</h2></div>
-      <p class="space-desc" style="margin-bottom:12px">모두 같은 숫자 4자리를 씁니다. 바꾸면 팀원 모두 새 비밀번호로 다시 로그인해야 합니다.</p>
+      <p class="space-desc" style="margin-bottom:12px">PC 세무대시보드 팀 연결에만 쓰는 숫자 4자리입니다(휴대폰은 구글 로그인). 바꾸면 모두 다시 로그인해야 합니다.</p>
       <form id="pinForm" class="quick" autocomplete="off">
         <input id="pinNew" class="input" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="새 비밀번호 4자리" aria-label="새 비밀번호 4자리" autocomplete="new-password" required>
         <button class="btn primary" type="submit">변경</button>
@@ -604,17 +604,15 @@ body.has-alert .wrap{padding-bottom:150px}
   </div>
 </div>
 
-<!-- 로그인: 공통 비밀번호 4자리 -->
+<!-- 로그인: 구글 계정만(2026-11-16 요청 — 4자리 비밀번호 칸 없앰). 웹판에서 구글 확인 뒤 이 화면으로 돌아옴 -->
 <div id="loginView" class="login" hidden>
-  <form class="login-card" id="loginForm" autocomplete="off">
+  <div class="login-card" id="loginForm">
     <div class="mark"><svg class="i"><use href="#i-lock"/></svg></div>
     <h2 id="loginTitle">팀 대시보드</h2>
     <p id="loginWho"></p>
-    <input id="pinIn" class="input pin-in" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" aria-label="비밀번호 4자리" autocomplete="current-password" required>
-    <button class="btn primary" type="submit" id="loginBtn">들어가기</button>
-    <a class="btn ghost" id="loginGoogle" href="https://dash.thebaruntax.kr/__teamgo" target="_top" rel="noopener">구글 계정으로 로그인</a><!-- 2026-11-14 요청: 구글 로그인(4자리는 비상용) — 웹판에서 구글 확인 뒤 이 화면으로 돌아옴 -->
+    <a class="btn primary" id="loginGoogle" href="https://dash.thebaruntax.kr/__teamgo" target="_top" rel="noopener">구글 계정으로 로그인</a>
     <div class="login-err" id="loginErr" role="alert"></div>
-  </form>
+  </div>
 </div>
 
 <!-- 할 일 편집 -->
@@ -1556,25 +1554,12 @@ $('#alertClose').addEventListener('click', () => { later = later.concat(S.fresh.
 function showLogin(){
   $('#loginView').hidden = false;
   $('#loginErr').textContent = '';
-  setTimeout(() => $('#pinIn').focus(), 50);
+  setTimeout(() => $('#loginGoogle').focus(), 50);
 }
-$('#loginForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const pin = $('#pinIn').value.trim();
-  if (!/^[0-9]{4}$/.test(pin)) { $('#loginErr').textContent = '숫자 4자리를 입력하세요'; return; }
-  $('#loginBtn').disabled = true;
-  try {
-    S.token = await call('login', pin); tokSet(S.token); actMark(true);
-    $('#loginView').hidden = true; $('#pinIn').value = '';
-    load(false); pump(); startLeave();
-  } catch (err) {
-    $('#loginErr').textContent = errText(err) || '로그인하지 못했습니다'; $('#pinIn').value = ''; $('#pinIn').focus();
-  } finally { $('#loginBtn').disabled = false; }
-});
 
 // ───── 멤버 관리 (대표 전용) ─────
 let M = null;
-const inviteText = m => '[' + BOOT.title + '] ' + m.name + '님 초대 링크입니다.\n' + m.link + '\n접속 비밀번호 4자리는 따로 알려드립니다.';
+const inviteText = m => '[' + BOOT.title + '] ' + m.name + '님 초대 링크입니다.\n' + m.link + '\n열고 [구글 계정으로 로그인]을 누르세요(팀원 관리에 연결한 구글 계정만 들어갈 수 있습니다).';
 async function copyText(text){
   try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
   const ta = document.createElement('textarea');
@@ -2149,7 +2134,7 @@ $('#title').textContent = BOOT.title;
 $('#today').textContent = now.getFullYear() + '년 ' + (now.getMonth() + 1) + '월 ' + now.getDate() + '일 (' + WD[now.getDay()] + ') · ' + S.me + (IS_ADMIN ? '(대표)' : IS_MANAGER ? '(관리자)' : '');
 $('#viewTabs [data-view="members"]').hidden = !CAN_MANAGE;
 $('#loginTitle').textContent = BOOT.title;
-$('#loginWho').textContent = S.me + '님, 접속 비밀번호 4자리를 입력하세요';
+$('#loginWho').textContent = S.me + '님, 구글 계정으로 로그인하세요';
 S.token = tokGet();
 /* 1시간 동안 손대지 않으면 로그아웃(2026-11-14 요청): 마지막 손댄 시각(이 기기, tdb.act.열쇠)을 저장해 다시 열 때도 봄. 저장 못 한 작업(outbox)은 그대로 둠 */
 const IDLE_MS = 60 * 60000, ACT = 'tdb.act.' + BOOT.key;
@@ -2303,25 +2288,14 @@ if (DEMO) initMock();
     document.body.innerHTML = '<div style="font-family:sans-serif;padding:48px 16px;text-align:center;color:#334155"><h2></h2><p></p></div>';
     document.querySelector('h2').textContent = title; document.querySelector('p').textContent = msg;
   }
-  // 주소만 열면 로그인 코드를 받는다. 맞으면 이 브라우저에만 기억(주소·서버 기록에 안 남음). 그래도 화면 비밀번호는 따로 묻는다.
+  // 주소만 열면 구글 로그인 단추만 보임(2026-11-16 요청 — 로그인 코드·비밀번호 입력 없앰). 열어 본 열쇠는 이 브라우저에만 기억(주소·서버 기록에 안 남음)
   var SAVED = 'tdb.team.key';
   function remember(v) { try { if (v) localStorage.setItem(SAVED, v); else localStorage.removeItem(SAVED); } catch (e) {} }
   function recalled() { try { return localStorage.getItem(SAVED) || ''; } catch (e) { return ''; } }
-  function codeOf(raw) { // 로그인 코드(1a2b-3c4d-…)·개인 링크(…/team/#열쇠, 옛 …/exec?key=열쇠) 다 받음
-    var m = String(raw || '').trim().match(/(?:#|[?&]key=)([0-9a-f-]+)/i);
-    var k = (m ? m[1] : String(raw || '').trim()).replace(/[\s-]/g, '');
-    return /^[0-9a-f]{12,40}$/i.test(k) ? k : '';
-  }
   function ask(msg) {
-    document.body.innerHTML = '<form id="f" style="font-family:sans-serif;max-width:360px;margin:0 auto;padding:48px 16px;text-align:center;color:#334155"><h2>더바른 세무회계 팀 대시보드</h2><p>로그인 코드나 개인 링크를 넣어 주세요. 한 번 열면 이 브라우저가 기억합니다.</p><input id="c" autocomplete="off" aria-label="로그인 코드" placeholder="로그인 코드" style="width:100%;box-sizing:border-box;padding:12px;font-size:16px;border:1px solid #cbd5e1;border-radius:8px"><button style="width:100%;margin-top:12px;padding:12px;font-size:16px;border:0;border-radius:8px;background:#1e40af;color:#fff">열기</button><p id="m" role="alert" style="color:#b91c1c"></p></form>';
+    document.body.innerHTML = '<div style="font-family:sans-serif;max-width:360px;margin:0 auto;padding:48px 16px;text-align:center;color:#334155"><h2>더바른 세무회계 팀 대시보드</h2><p>팀원 관리에 연결한 구글 계정으로 로그인하세요.</p><a id="g" href="https://dash.thebaruntax.kr/__teamgo" target="_top" rel="noopener" style="display:block;margin-top:12px;padding:12px;font-size:16px;border-radius:8px;background:#1e40af;color:#fff;text-decoration:none">구글 계정으로 로그인</a><p id="m" role="alert" style="color:#b91c1c"></p></div>';
     document.getElementById('m').textContent = msg || '';
-    document.getElementById('f').onsubmit = function (e) {
-      e.preventDefault();
-      var k = codeOf(document.getElementById('c').value);
-      if (!k) { document.getElementById('m').textContent = '로그인 코드를 다시 확인해 주세요.'; return; }
-      remember(k); location.reload();
-    };
-    document.getElementById('c').focus();
+    document.getElementById('g').focus();
   }
   // 구글 로그인으로 돌아옴(2026-11-14): #열쇠&t=로그인표 — 표를 그 열쇠 이름(tdb.tok.열쇠)으로 저장하고 주소는 #열쇠 만 남김(방문 기록·화면에 표가 안 남게)
   var hm = /^#([0-9a-z_-]{8,64})&t=([0-9A-Za-z_.=-]{1,200})$/i.exec(location.hash);
@@ -2337,7 +2311,7 @@ if (DEMO) initMock();
     s.textContent = m.textContent; m.remove(); document.body.appendChild(s);
   }).catch(function (e) {
     var msg = (e && e.message) || '';
-    if (!fromLink && /링크가 바뀌었거나/.test(msg)) { remember(''); return ask('코드가 맞지 않거나 바뀌었습니다. 대표님께 새 코드를 받아 주세요.'); } // 기억한 코드만 지움 — 연결 실패로는 안 지움
+    if (!fromLink && /링크가 바뀌었거나/.test(msg)) { remember(''); return ask('저장된 로그인 정보가 바뀌었습니다. 구글 계정으로 다시 로그인해 주세요.'); } // 기억한 열쇠만 지움 — 연결 실패로는 안 지움
     stop('열 수 없습니다', msg || '잠시 후 다시 열어 주세요.');
   });
 })();
