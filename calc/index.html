@@ -631,6 +631,13 @@ const TAXCALC_RETIRE = {
   svc: [[5, 0, 1000000, 0], [10, 5000000, 2000000, 5], [20, 15000000, 2500000, 10], [Infinity, 40000000, 3000000, 20]],
   conv: [[8e6, 0, 1, 0], [7e7, 8e6, 0.6, 8e6], [1e8, 45200000, 0.55, 7e7], [3e8, 61700000, 0.45, 1e8], [Infinity, 151700000, 0.35, 3e8]]
 };
+const TAXCALC_YANGDO = {
+  from: "2023-01-01",
+  hi: 12e8,
+  basic: 2500000,
+  grace: ["2022-05-10", "2026-05-09"],
+  efile: 20000
+};
 const TAXCALC = {
   rateFor(ym) {
     const warn = [],
@@ -1675,6 +1682,178 @@ const TAXCALC = {
       local,
       ded: itax + local,
       net: gross - itax - local
+    };
+  },
+  yearsHeld(from, to) {
+    if (!from || !to || to < from) return 0;
+    const [y, m, d] = from.split("-").map(Number);
+    let n = 0;
+    for (;;) {
+      const last = new Date(Date.UTC(y + n + 1, m, 0)).getUTCDate();
+      if (new Date(Date.UTC(y + n + 1, m - 1, Math.min(d, last))).toISOString().slice(0, 10) > to) return n;
+      n++;
+    }
+  },
+  yangdo(s) {
+    const Q = TAXCALC_YANGDO,
+      warn = [],
+      rows = [],
+      num = v => Math.max(0, +v || 0);
+    const kind = s.kind || "house",
+      house = kind === "house",
+      unreg = !!s.unreg,
+      ticketish = kind === "ticket" || kind === "presale";
+    const sale = num(s.salePrice),
+      share = Math.min(100, num(s.share) || 100) / 100;
+    if (!s.saleDate || !s.acqDate || !sale) return {
+      err: "양도일·취득일·양도가액을 넣으면 계산합니다.",
+      warn,
+      rows
+    };
+    if (s.saleDate < Q.from) return {
+      err: `양도일 ${Q.from} 이후만 계산합니다(그 전 양도는 세율 구간·고가주택 기준·중과율이 다름).`,
+      warn,
+      rows
+    };
+    if (s.acqDate > s.saleDate) return {
+      err: "취득일이 양도일보다 늦습니다.",
+      warn,
+      rows
+    };
+    const decAcq = s.cause === "inherit" ? s.decAcqDate : s.acqDate;
+    if (s.cause === "inherit" && (!decAcq || decAcq > s.saleDate)) return {
+      err: "상속받은 자산은 피상속인 취득일을 넣으세요(세율의 보유기간 — 제104조 ② 1호).",
+      warn,
+      rows
+    };
+    const capex = num(s.capex),
+      sellCost = num(s.sellCost);
+    let acq, need, needHow;
+    if (s.est) {
+      const baseAcq = num(s.baseAcq),
+        gr = ticketish ? 0.01 : unreg ? 0.003 : 0.03;
+      if (s.est === "conv") {
+        if (!num(s.baseSale) || !baseAcq) return {
+          err: "환산취득가액은 취득 당시·양도 당시 기준시가를 모두 넣으세요.",
+          warn,
+          rows
+        };
+        acq = Math.floor(sale * baseAcq / num(s.baseSale) + 1e-6);
+      } else acq = num(s.acqPrice);
+      const ded = Math.floor(baseAcq * gr + 1e-6),
+        A = acq + ded,
+        B = capex + sellCost;
+      if (s.est === "conv" && B > A) {
+        need = B;
+        needHow = `자본적지출·양도비 ${won(B)}원 > 환산취득가액 ${won(acq)}원 + 개산공제 ${won(ded)}원 → 큰 쪽(제97조 ② 2호 단서)`;
+      } else {
+        need = A;
+        needHow = `${{
+          conv: "환산취득가액",
+          trade: "매매사례가액",
+          appr: "감정가액"
+        }[s.est] || "추계 취득가액"} ${won(acq)}원 + 개산공제 ${won(ded)}원(취득 당시 기준시가 × ${Math.round(gr * 1000) / 10}%, 시행령 제163조 ⑥)`;
+      }
+    } else {
+      acq = num(s.acqPrice);
+      need = acq + capex + sellCost;
+      needHow = `취득가액 ${won(acq)}원 + 자본적지출 ${won(capex)}원 + 양도비 ${won(sellCost)}원(제97조 ①)`;
+    }
+    const rawGain = sale - need,
+      gain = Math.floor(Math.max(0, rawGain) * share + 1e-6);
+    if (rawGain < 0) warn.push(`양도차손 ${won(Math.floor(-rawGain * share))}원 — 세액은 0원입니다. 같은 해 다른 양도소득이 있으면 차손 통산을 검토하세요.`);
+    const exempt = !!s.exempt && !unreg && (house || kind === "ticket");
+    if (s.exempt && unreg) warn.push("미등기 자산은 비과세를 적용하지 않습니다(제91조 ①).");
+    let taxGain = gain;
+    if (exempt) taxGain = sale <= Q.hi ? 0 : Math.floor(gain * (sale - Q.hi) / sale + 1e-6);
+    const ltY = TAXCALC.yearsHeld(s.acqDate, s.saleDate),
+      rtY = TAXCALC.yearsHeld(decAcq, s.saleDate),
+      houses = +s.houses || 1;
+    const inGrace = s.saleDate >= Q.grace[0] && s.saleDate <= Q.grace[1] && rtY >= 2,
+      heavyCase = house && !unreg && !!s.adjusted && houses >= 2 && !s.heavyEx;
+    const heavy = heavyCase && !inGrace ? houses >= 3 ? 30 : 20 : 0;
+    if (heavyCase && inGrace) warn.push(`중과 한시 배제 — ${Q.grace[0]} ~ ${Q.grace[1]} 양도·보유 2년 이상이라 기본세율로 계산했습니다(시행령 제167조의10 ① 12의2).`);
+    if (s.cause === "gift") warn.push("배우자·직계존비속에게 증여받아 10년 안에 양도하면 이월과세(제97조의2)로 취득가액·보유기간이 달라질 수 있습니다 — 이 계산은 반영하지 않았습니다.");
+    if (kind === "ticket") warn.push("조합원입주권 장기보유특별공제는 관리처분계획인가 전 양도차익에만 적용됩니다 — 이 계산은 입력한 양도차익 전체에 적용했습니다.");
+    const resY = Math.min(Math.floor(num(s.resideY)), ltY);
+    let ltRate = 0,
+      ltHow;
+    if (unreg) ltHow = "미등기 — 적용 안 함(제95조 ②)";else if (heavy) ltHow = "중과 주택 — 적용 안 함(제95조 ②)";else if (kind === "presale") ltHow = "분양권 — 적용 안 함(제95조 ②)";else if (ltY < 3) ltHow = `보유 ${ltY}년 — 3년 미만 적용 안 함`;else if (house && s.oneHouse && resY >= 2) {
+      const a = 4 * Math.min(ltY, 10),
+        b = resY === 2 ? 8 : 4 * Math.min(resY, 10);
+      ltRate = a + b;
+      ltHow = `표 2: 보유 ${ltY}년 ${a}% + 거주 ${resY}년 ${b}%(제95조 ②, 시행령 제159조의4)`;
+    } else {
+      ltRate = 2 * Math.min(ltY, 15);
+      ltHow = `표 1: 보유 ${ltY}년 ${ltRate}%(제95조 ②)`;
+    }
+    const ltDed = Math.floor(taxGain * ltRate / 100 + 1e-6),
+      income = taxGain - ltDed;
+    const basic = unreg || s.basicUsed ? 0 : Math.min(Q.basic, income),
+      base = Math.max(0, Math.floor(income - basic));
+    const F = p => base * p / 100,
+      B = p => TAXCALC.incTaxRaw(base) + F(p),
+      cands = [];
+    if (unreg) cands.push(["미등기 70%(제104조 ① 10호)", F(70)]);else if (kind === "presale") cands.push(rtY < 1 ? ["분양권 1년 미만 70%(제104조 ① 3호)", F(70)] : ["분양권 60%(제104조 ① 1호)", F(60)]);else {
+      const res = house || kind === "ticket",
+        add = kind === "nbland" ? s.designated ? 20 : 10 : heavy;
+      if (rtY < 1) cands.push([res ? "1년 미만 주택·입주권 70%(제104조 ① 3호)" : "1년 미만 50%(제104조 ① 3호)", F(res ? 70 : 50)]);else if (rtY < 2) cands.push([res ? "1년 이상 2년 미만 주택·입주권 60%(제104조 ① 2호)" : "1년 이상 2년 미만 40%(제104조 ① 2호)", F(res ? 60 : 40)]);
+      cands.push([add ? `기본세율 + ${add}%p(${kind === "nbland" ? s.designated ? "제104조 ① 8호·④ 3호" : "제104조 ① 8호" : "제104조 ⑦"})` : "기본세율 6~45%(제55조 ①)", B(add)]);
+    }
+    const best = cands.reduce((a, b) => b[1] > a[1] ? b : a, ["", 0]),
+      calcRaw = Math.max(0, best[1]),
+      calc = Math.floor(calcRaw + 1e-6);
+    const redNat = num(s.redNat),
+      credit = s.efile && calc > 0 ? Q.efile : 0,
+      add = s.newBldg && (s.est === "conv" || s.est === "appr") ? Math.floor(num(s.bldgEst) * share * 0.05 + 1e-6) : 0;
+    const natPay = TAXCALC.f10(Math.max(0, calc - redNat - credit) + add),
+      local = TAXCALC.f10(Math.max(0, Math.floor(calcRaw / 10 + 1e-6) - num(s.redLocal)));
+    const nong = s.nong ? TAXCALC.f10(redNat * 0.2) : 0,
+      [dy, dm] = s.saleDate.split("-").map(Number),
+      due = new Date(Date.UTC(dy, dm + 2, 0)).toISOString().slice(0, 10);
+    const R = (k, how, v) => rows.push({
+      k,
+      how,
+      v
+    });
+    R("양도가액", share < 1 ? `자산 전체 ${won(sale)}원 × 지분 ${Math.round(share * 1000) / 10}%` : "실지거래가액", Math.floor(sale * share + 1e-6));
+    R("필요경비", needHow + (share < 1 ? " × 지분" : ""), Math.floor(need * share + 1e-6));
+    R("양도차익", "양도가액 − 필요경비(제95조 ①)", gain);
+    if (exempt) R("과세 양도차익", sale <= Q.hi ? "1세대1주택 12억 원 이하 — 전액 비과세(제89조 ① 3호)" : `고가주택: 양도차익 × (양도가액 − 12억) ÷ 양도가액(제95조 ③, 시행령 제160조)`, taxGain);
+    R("장기보유특별공제", ltHow, -ltDed);
+    R("양도소득금액", "과세 양도차익 − 장기보유특별공제", income);
+    R("기본공제", unreg ? "미등기 — 없음(제103조)" : s.basicUsed ? "올해 이미 사용" : "연 250만 원(제103조)", -basic);
+    R("과세표준", "원 미만 버림", base);
+    R("산출세액", best[0] || "-", calc);
+    if (redNat) R("감면세액", "입력한 국세 감면", -redNat);
+    if (credit) R("전자신고세액공제", "납세자 직접 전자 예정신고(조특법 제104조의8 ①, 시행령 제104조의5 ② 2호)", -credit);
+    if (add) R("환산·감정가액 가산세", "신축·증축 5년 내 건물분 환산·감정가액 × 5% — 감면 뒤 결정세액에 더함, 산출세액이 없어도(제114조의2)", add);
+    R("양도소득세", "산출세액 − 감면·공제 + 가산세, 10원 미만 버림(국고금 관리법 제47조)", natPay);
+    R("지방소득세", `과세표준 × 국세 세율의 10분의 1${num(s.redLocal) ? " − 지방 감면" : ""}(지방세법 제103조의3)`, local);
+    if (nong) R("농어촌특별세", "감면세액 × 20%(농특세법 제5조)", nong);
+    return {
+      warn,
+      rows,
+      acq,
+      need,
+      gain,
+      taxGain,
+      ltY,
+      rtY,
+      ltRate,
+      ltDed,
+      income,
+      basic,
+      base,
+      rate: best[0],
+      calc,
+      credit,
+      add,
+      natPay,
+      local,
+      nong,
+      total: natPay + local + nong,
+      due
     };
   }
 };
@@ -4701,6 +4880,240 @@ function RetireCalc() {
     t: "\uBC18\uC601\uD558\uC9C0 \uC54A\uC740 \uAC83"
   }, "\uC784\uC6D0 \uD1F4\uC9C1\uC18C\uB4DD \uD55C\uB3C4(\uC18C\uB4DD\uC138\uBC95 \uC81C22\uC870 \u2462) \xB7 \uBE44\uACFC\uC138 \uD1F4\uC9C1\uAE09\uC5EC \xB7 \uADFC\uC18D\uAE30\uAC04\uC5D0\uC11C \uBE7C\uB294 \uAE30\uAC04(\uC2DC\uD589\uB839 \uC81C105\uC870 \u2460 \uB2E8\uC11C) \xB7 2023\uB144 \uC804 \uD1F4\uC9C1 \xB7 1\uC8FC 15\uC2DC\uAC04 \uBBF8\uB9CC \uADFC\uB85C\uC790 \uD310\uC815(\uADFC\uD1F4\uBC95 \uC81C4\uC870 \u2460 \uB2E8\uC11C) \xB7 \uD3C9\uADE0\uC784\uAE08 \uC870\uC815 \xB7 \uC77C\uC6A9\uADFC\uB85C\uC790 \uD3C9\uADE0\uC784\uAE08. \uC784\uAE08\uC5D0 \uBB34\uC5C7\uC774 \uB4E4\uC5B4\uAC00\uB294\uC9C0\uB294 \uC0AC\uC548\uBCC4\uB85C \uD310\uB2E8\uD558\uC138\uC694.")));
 }
+const YANGDO_INIT = {
+  kind: "house",
+  unreg: false,
+  designated: false,
+  saleDate: "",
+  salePrice: 0,
+  share: 100,
+  cause: "buy",
+  decAcqDate: "",
+  acqDate: "",
+  acqPrice: 0,
+  est: "",
+  baseAcq: 0,
+  baseSale: 0,
+  capex: 0,
+  sellCost: 0,
+  exempt: false,
+  oneHouse: false,
+  resideY: 0,
+  adjusted: false,
+  houses: 1,
+  heavyEx: false,
+  newBldg: false,
+  bldgEst: 0,
+  redNat: 0,
+  nong: false,
+  redLocal: 0,
+  basicUsed: false,
+  efile: false
+};
+function YangdoCalc() {
+  const [s, setS] = useState(YANGDO_INIT);
+  const up = k => v => setS(o => ({
+    ...o,
+    [k]: v
+  }));
+  const r = TAXCALC.yangdo(s),
+    house = s.kind === "house";
+  const sel = (k, opts) => React.createElement("select", {
+    value: s[k],
+    onChange: e => up(k)(e.target.value),
+    style: {
+      ...tInput,
+      width: "100%"
+    }
+  }, opts.map(([v, t]) => React.createElement("option", {
+    key: v,
+    value: v
+  }, t)));
+  const dateIn = k => React.createElement("input", {
+    type: "date",
+    value: s[k],
+    onChange: e => up(k)(e.target.value),
+    style: {
+      ...tInput,
+      width: "100%"
+    }
+  });
+  const numIn = (k, max) => React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: max,
+    value: s[k],
+    onChange: e => up(k)(e.target.value),
+    style: {
+      ...tInput,
+      width: "100%",
+      textAlign: "right"
+    }
+  });
+  const ck = (k, t, hint) => React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: 13,
+      fontWeight: 600,
+      color: C.ink,
+      cursor: "pointer",
+      minHeight: 36
+    }
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: !!s[k],
+    onChange: e => up(k)(e.target.checked),
+    style: {
+      width: 16,
+      height: 16
+    }
+  }), t), hint && React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.sub
+    }
+  }, hint));
+  const box = (col, bg, children) => React.createElement("div", {
+    role: "note",
+    style: {
+      marginTop: 12,
+      padding: "10px 14px",
+      borderRadius: 10,
+      fontSize: 13,
+      lineHeight: 1.6,
+      background: bg,
+      color: col,
+      border: `1px solid ${col}55`
+    }
+  }, children);
+  const money = v => v < 0 ? `−${won(-v)}원` : `${won(v)}원`;
+  const sub = {
+    fontSize: 13,
+    fontWeight: 600,
+    color: C.ink,
+    margin: "16px 0 8px"
+  };
+  return React.createElement(Card, null, React.createElement(CardTitle, {
+    right: "\uC18C\uB4DD\uC138\uBC95 \uC81C94\uC870~\uC81C105\uC870 \xB7 \uC9C0\uBC29\uC138\uBC95 \uC81C103\uC870\uC7583"
+  }, "\uC591\uB3C4\uC18C\uB4DD\uC138"), React.createElement("div", {
+    style: sub
+  }, "\uC790\uC0B0 \xB7 \uC591\uB3C4"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "\uC790\uC0B0 \uC885\uB958"
+  }, sel("kind", [["house", "주택"], ["land", "토지"], ["nbland", "비사업용 토지"], ["bldg", "건물(주택 외)"], ["ticket", "조합원입주권"], ["presale", "분양권"]])), React.createElement(CalcField, {
+    label: "\uC591\uB3C4\uC77C",
+    hint: `2023-01-01 이후만 계산 · 신고기한 = 양도일이 속한 달 말일부터 2개월(제105조)`
+  }, dateIn("saleDate")), React.createElement(CalcField, {
+    label: "\uC591\uB3C4\uAC00\uC561(\uC790\uC0B0 \uC804\uCCB4)",
+    hint: "\uACF5\uB3D9\uBA85\uC758\uB3C4 \uC804\uCCB4 \uAE08\uC561 \u2014 12\uC5B5 \uD310\uB2E8\uC740 \uC804\uCCB4 \uAE30\uC900(\uC2DC\uD589\uB839 \uC81C156\uC870)"
+  }, React.createElement(MoneyIn, {
+    v: s.salePrice,
+    set: up("salePrice")
+  })), React.createElement(CalcField, {
+    label: "\uB0B4 \uC9C0\uBD84(%)",
+    hint: "\uB2E8\uB3C5\uC774\uBA74 100"
+  }, numIn("share", 100)), ck("unreg", "미등기 자산", "70% · 비과세·장특공·기본공제 없음(제91조·제104조 ③)"), s.kind === "nbland" && ck("designated", "지정지역 안", "비사업용 토지 +10%p 더(제104조 ④ 3호)")), React.createElement("div", {
+    style: sub
+  }, "\uCDE8\uB4DD"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "\uCDE8\uB4DD \uC6D0\uC778"
+  }, sel("cause", [["buy", "매매 등"], ["inherit", "상속"], ["gift", "증여"]])), React.createElement(CalcField, {
+    label: s.cause === "inherit" ? "상속개시일" : s.cause === "gift" ? "증여일" : "취득일",
+    hint: s.cause === "inherit" ? "장기보유특별공제 보유기간의 시작(시행령 제162조 ① 5호)" : ""
+  }, dateIn("acqDate")), s.cause === "inherit" && React.createElement(CalcField, {
+    label: "\uD53C\uC0C1\uC18D\uC778 \uCDE8\uB4DD\uC77C",
+    hint: "\uC138\uC728(\uB2E8\uAE30 \uC5EC\uBD80)\uC758 \uBCF4\uC720\uAE30\uAC04 \uC2DC\uC791(\uC81C104\uC870 \u2461 1\uD638)"
+  }, dateIn("decAcqDate")), React.createElement(CalcField, {
+    label: "\uCDE8\uB4DD\uAC00\uC561 \uBC29\uC2DD"
+  }, sel("est", [["", "실지거래가액"], ["trade", "매매사례가액"], ["appr", "감정가액"], ["conv", "환산취득가액"]])), s.est !== "conv" && React.createElement(CalcField, {
+    label: s.est ? "매매사례·감정가액" : "취득가액(자산 전체)"
+  }, React.createElement(MoneyIn, {
+    v: s.acqPrice,
+    set: up("acqPrice")
+  })), s.est && React.createElement(CalcField, {
+    label: "\uCDE8\uB4DD \uB2F9\uC2DC \uAE30\uC900\uC2DC\uAC00",
+    hint: `개산공제 ${s.kind === "ticket" || s.kind === "presale" ? "1%" : s.unreg ? "0.3%" : "3%"}(시행령 제163조 ⑥)`
+  }, React.createElement(MoneyIn, {
+    v: s.baseAcq,
+    set: up("baseAcq")
+  })), s.est === "conv" && React.createElement(CalcField, {
+    label: "\uC591\uB3C4 \uB2F9\uC2DC \uAE30\uC900\uC2DC\uAC00",
+    hint: "\uD658\uC0B0 = \uC591\uB3C4\uAC00\uC561 \xD7 \uCDE8\uB4DD \uB2F9\uC2DC \xF7 \uC591\uB3C4 \uB2F9\uC2DC \uAE30\uC900\uC2DC\uAC00"
+  }, React.createElement(MoneyIn, {
+    v: s.baseSale,
+    set: up("baseSale")
+  })), React.createElement(CalcField, {
+    label: "\uC790\uBCF8\uC801\uC9C0\uCD9C",
+    hint: s.est === "conv" ? "환산가+개산공제보다 크면 이쪽(제97조 ② 2호 단서)" : "증빙 있는 것(시행령 제163조 ③)"
+  }, React.createElement(MoneyIn, {
+    v: s.capex,
+    set: up("capex")
+  })), React.createElement(CalcField, {
+    label: "\uC591\uB3C4\uBE44",
+    hint: "\uC911\uAC1C\uC218\uC218\uB8CC\xB7\uC2E0\uACE0\uC11C \uC791\uC131\uBE44 \uB4F1(\uC2DC\uD589\uB839 \uC81C163\uC870 \u2464)"
+  }, React.createElement(MoneyIn, {
+    v: s.sellCost,
+    set: up("sellCost")
+  })), (s.est === "conv" || s.est === "appr") && ck("newBldg", "신축·증축 5년 안 건물", "증축은 85㎡ 초과분 — 건물분 환산·감정가액 × 5% 가산세(제114조의2)"), (s.est === "conv" || s.est === "appr") && s.newBldg && React.createElement(CalcField, {
+    label: "\uAC74\uBB3C\uBD84 \uD658\uC0B0\xB7\uAC10\uC815\uAC00\uC561(\uC804\uCCB4)"
+  }, React.createElement(MoneyIn, {
+    v: s.bldgEst,
+    set: up("bldgEst")
+  }))), house && React.createElement(React.Fragment, null, React.createElement("div", {
+    style: sub
+  }, "\uC8FC\uD0DD \u2014 \uC694\uAC74\uC740 \uC9C1\uC811 \uD655\uC778 \uD6C4 \uCCB4\uD06C"), React.createElement("div", {
+    style: calcGrid
+  }, ck("exempt", "1세대1주택 비과세 요건 충족", "보유 2년(조정지역 취득은 거주 2년) 등 — 제89조 ① 3호·시행령 제154조"), ck("oneHouse", "양도일 현재 1세대1주택", "장특공 표 2(최대 80%) — 거주 2년 이상일 때(시행령 제159조의4)"), React.createElement(CalcField, {
+    label: "\uAC70\uC8FC\uAE30\uAC04(\uB144)",
+    hint: "\uBCF4\uC720\uAE30\uAC04 \uC911 \uC2E4\uC81C \uAC70\uC8FC"
+  }, numIn("resideY")), ck("adjusted", "조정대상지역 주택"), s.adjusted && React.createElement(CalcField, {
+    label: "1\uC138\uB300 \uC8FC\uD0DD \uC218(\uC785\uC8FC\uAD8C\xB7\uBD84\uC591\uAD8C \uD3EC\uD568)"
+  }, sel("houses", [["1", "1주택"], ["2", "2주택"], ["3", "3주택 이상"]])), s.adjusted && +s.houses >= 2 && ck("heavyEx", "중과 제외 주택", "시행령 제167조의3·제167조의10 제외 사유"))), React.createElement("div", {
+    style: sub
+  }, "\uAC10\uBA74 \xB7 \uACF5\uC81C"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "\uAD6D\uC138 \uAC10\uBA74\uC138\uC561",
+    hint: "\uC870\uD2B9\uBC95 \uAC10\uBA74 \u2014 \uD55C\uB3C4(\uC81C133\uC870)\uB294 \uC9C1\uC811 \uD655\uC778"
+  }, React.createElement(MoneyIn, {
+    v: s.redNat,
+    set: up("redNat")
+  })), React.createElement(CalcField, {
+    label: "\uC9C0\uBC29\uC18C\uB4DD\uC138 \uAC10\uBA74\uC138\uC561",
+    hint: "\uC9C0\uBC29\uC138\uD2B9\uB840\uC81C\uD55C\uBC95 \uD574\uB2F9 \uC870\uBB38 \uD655\uC778 \uD6C4 \uC785\uB825"
+  }, React.createElement(MoneyIn, {
+    v: s.redLocal,
+    set: up("redLocal")
+  })), ck("nong", "농어촌특별세 대상", "감면세액 × 20%(자경농지 등 비과세 감면은 끔)"), ck("basicUsed", "올해 기본공제 이미 사용", "같은 해 앞선 양도에서 250만 원 공제"), ck("efile", "전자신고세액공제 2만 원", "납세자가 직접 전자 예정신고할 때만 — 세무사 대리 신고는 해당 없음(조특법 제104조의8 ①·③)")), r.err && box(C.sub, C.soft, r.err), r.warn.map(w => React.createElement(React.Fragment, {
+    key: w
+  }, box("#B45309", "#FFF8E6", w))), !r.err && React.createElement("table", {
+    className: "calc-res",
+    style: {
+      width: "100%",
+      borderCollapse: "collapse",
+      marginTop: 14,
+      fontSize: 13
+    }
+  }, React.createElement("tbody", null, r.rows.map(x => calcRow(x.k, x.how, money(x.v), ["양도소득세", "지방소득세"].includes(x.k) ? {
+    col: C.ink
+  } : {})), calcRow("납부할 세액 합계", `양도소득세${r.nong ? " + 농특세" : ""} + 지방소득세 · 신고기한 ${r.due}`, money(r.total), {
+    big: true
+  }))), React.createElement(NoteGrid, null, React.createElement(NoteItem, {
+    t: "\uD655\uC778\uD560 \uAC83"
+  }, "\uBE44\uACFC\uC138 \uC694\uAC74(\uC81C89\uC870 \u2460 3\uD638\xB7\uC2DC\uD589\uB839 \uC81C154\uC870) \xB7 \uC911\uACFC \uC81C\uC678 \uC0AC\uC720(\uC2DC\uD589\uB839 \uC81C167\uC870\uC7583\xB7\uC81C167\uC870\uC75810) \xB7 \uAC10\uBA74 \uC694\uAC74\uACFC \uD55C\uB3C4(\uC870\uD2B9\uBC95 \uC81C133\uC870) \xB7 \uAC19\uC740 \uD574 \uC5EC\uB7EC \uAC74 \uC591\uB3C4 \uC2DC \uD569\uC0B0 \uBE44\uAD50\uACFC\uC138(\uC81C104\uC870 \u2464)\uC640 \uCC28\uC190 \uD1B5\uC0B0 \xB7 \uC99D\uC5EC\uBC1B\uC740 \uC790\uC0B0\uC758 \uC774\uC6D4\uACFC\uC138(\uC81C97\uC870\uC7582)."), React.createElement(NoteItem, {
+    t: "\uACC4\uC0B0 \uAE30\uC900(\uBC95\uB839 \uC6D0\uBB38 \uD655\uC778 2026-11-17)"
+  }, "\uC911\uACFC \uD55C\uC2DC \uBC30\uC81C\uB294 2026-05-09 \uC591\uB3C4\uBD84\uAE4C\uC9C0(\uC2DC\uD589\uB839 \uC81C167\uC870\uC75810 \u2460 12\uC7582). \uC7A5\uD2B9\uACF5\uC740 \uC911\uACFC\xB7\uBBF8\uB4F1\uAE30\xB7\uBD84\uC591\uAD8C \uC81C\uC678, \uD45C 2 \uB294 \uC591\uB3C4\uC77C \uD604\uC7AC 1\uC8FC\uD0DD + \uAC70\uC8FC 2\uB144 \uC774\uC0C1. \uC0C1\uC18D \uC790\uC0B0\uC740 \uC7A5\uD2B9\uACF5 = \uC0C1\uC18D\uAC1C\uC2DC\uC77C, \uC138\uC728 = \uD53C\uC0C1\uC18D\uC778 \uCDE8\uB4DD\uC77C\uBD80\uD130. \uB05D\uC218: \uACFC\uC138\uD45C\uC900 \uC6D0 \uBBF8\uB9CC, \uC138\uC561 10\uC6D0 \uBBF8\uB9CC \uBC84\uB9BC. \uC815\uB2F5 \uB300\uC870 = \uAD6D\uC138\uCCAD \u300C2026\uB144 \uC8FC\uD0DD\uACFC \uC138\uAE08\u300D \uACC4\uC0B0 \uC0AC\uB840."), React.createElement(NoteItem, {
+    t: "\uBC18\uC601\uD558\uC9C0 \uC54A\uC740 \uAC83"
+  }, "2023\uB144 \uC804 \uC591\uB3C4 \xB7 \uC8FC\uC2DD\xB7\uD30C\uC0DD\uC0C1\uD488\xB7\uC2E0\uD0C1\uC218\uC775\uAD8C \xB7 \uBE44\uAC70\uC8FC\uC790 \xB7 \uC774\uC6D4\uACFC\uC138\xB7\uBD80\uB2F9\uD589\uC704 \uACC4\uC0B0 \xB7 \uC870\uD569\uC6D0\uC785\uC8FC\uAD8C \uAD00\uB9AC\uCC98\uBD84 \uC804\uD6C4 \uCC28\uC775 \uAD6C\uBD84 \xB7 \uBD80\uB2F4\uBD80\uC99D\uC5EC \xB7 \uC2E0\uACE0\xB7\uB0A9\uBD80\uC9C0\uC5F0 \uAC00\uC0B0\uC138(\uAC00\uC0B0\uC138 \uD0ED).")));
+}
 function CalcPage() {
   const [saved, setTab] = useMem("calc.tab", "pen");
   const tab = saved === "ins" ? "pay" : saved;
@@ -4711,13 +5124,13 @@ function CalcPage() {
       flexWrap: "wrap",
       marginBottom: 14
     }
-  }, [["pen", "가산세"], ["pay", "급여·4대보험"], ["ret", "퇴직금"], ["ye", "연말정산"], ["hi", "건강보험료 정산"]].map(([k, t]) => React.createElement(Pill, {
+  }, [["pen", "가산세"], ["pay", "급여·4대보험"], ["ret", "퇴직금"], ["yd", "양도세"], ["ye", "연말정산"], ["hi", "건강보험료 정산"]].map(([k, t]) => React.createElement(Pill, {
     key: k,
     label: t,
     active: tab === k,
     onClick: () => setTab(k),
     color: C.accent
-  }))), tab === "pen" && React.createElement(PenaltyCalc, null), tab === "pay" && React.createElement(PayTab, null), tab === "ret" && React.createElement(RetireCalc, null), tab === "ye" && React.createElement(YearEndCalc, null), tab === "hi" && React.createElement(HiSettleCalc, null), React.createElement("div", {
+  }))), tab === "pen" && React.createElement(PenaltyCalc, null), tab === "pay" && React.createElement(PayTab, null), tab === "ret" && React.createElement(RetireCalc, null), tab === "yd" && React.createElement(YangdoCalc, null), tab === "ye" && React.createElement(YearEndCalc, null), tab === "hi" && React.createElement(HiSettleCalc, null), React.createElement("div", {
     style: {
       fontSize: 12,
       color: C.sub,
