@@ -6045,22 +6045,49 @@ function GiftCalc() {
   }, "\uC7AC\uC0B0 \uD3C9\uAC00 \xB7 \uD569\uC0B0\uBC30\uC81C\uC99D\uC5EC\uC7AC\uC0B0(\uBA85\uC758\uC2E0\uD0C1\xB7\uD2B9\uC218\uAD00\uACC4\uBC95\uC778 \uC774\uC775 \uB4F1) \xB7 \uC99D\uC5EC\uC758\uC81C\xB7\uCD94\uC815 \uC774\uC775 \uACC4\uC0B0 \xB7 \uCC3D\uC5C5\uC790\uAE08\xB7\uAC00\uC5C5\uC2B9\uACC4 \uACFC\uC138\uD2B9\uB840 \xB7 \uC601\uB18D\uC790\uB140 \uAC10\uBA74 \uC694\uAC74 \xB7 \uC678\uAD6D\uB0A9\uBD80\uC138\uC561\uACF5\uC81C \uC790\uB3D9 \uACC4\uC0B0 \xB7 \uBD80\uB2F4\uBD80\uC99D\uC5EC\uC758 \uC99D\uC5EC\uC790 \uC591\uB3C4\uC18C\uB4DD\uC138(\uC591\uB3C4\uC138 \uD0ED) \xB7 \uAC00\uC0B0\uC138(\uAC00\uC0B0\uC138 \uD0ED).")));
 }
 function CalcPage() {
+  const G = [["pen", "가산세", []], ["payg", "급여 및 4대보험 정산", [["pay", "급여·4대보험"], ["ret", "퇴직금"], ["ye", "연말정산"], ["hi", "건강보험료 정산"]]], ["asset", "재산세", [["ih", "상속세"], ["gf", "증여세"], ["yd", "양도세"]]]];
   const [saved, setTab] = useMem("calc.tab", "pen");
-  const tab = saved === "ins" ? "pay" : saved;
+  const [last, setLast] = useMem("calc.lastsub", {});
+  const old = saved === "ins" ? "pay" : saved;
+  const grp = G.find(g => g[0] === old || g[2].some(x => x[0] === old)) || G[0],
+    tab = grp === G[0] ? "pen" : old;
+  const goGroup = g => setTab(!g[2].length ? g[0] : g[2].some(x => x[0] === last[g[0]]) ? last[g[0]] : g[2][0][0]);
+  const goSub = k => {
+    setTab(k);
+    setLast(o => ({
+      ...o,
+      [grp[0]]: k
+    }));
+  };
   return React.createElement(React.Fragment, null, React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
       flexWrap: "wrap",
-      marginBottom: 14
+      marginBottom: grp[2].length ? 8 : 14
     }
-  }, [["pen", "가산세"], ["pay", "급여·4대보험"], ["ret", "퇴직금"], ["ih", "상속세"], ["gf", "증여세"], ["yd", "양도세"], ["ye", "연말정산"], ["hi", "건강보험료 정산"]].map(([k, t]) => React.createElement(Pill, {
+  }, G.map(g => React.createElement(Pill, {
+    key: g[0],
+    label: g[1],
+    active: grp[0] === g[0],
+    onClick: () => goGroup(g),
+    color: C.accent
+  }))), grp[2].length > 0 && React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap",
+      marginBottom: 14,
+      paddingLeft: 10,
+      borderLeft: `3px solid ${C.accent}`
+    }
+  }, grp[2].map(([k, t]) => React.createElement(Pill, {
     key: k,
     label: t,
     active: tab === k,
-    onClick: () => setTab(k),
-    color: C.accent
-  }))), tab === "pen" && React.createElement(PenaltyCalc, null), tab === "pay" && React.createElement(PayTab, null), tab === "ret" && React.createElement(RetireCalc, null), tab === "ih" && React.createElement(InheritCalc, null), tab === "gf" && React.createElement(GiftCalc, null), tab === "yd" && React.createElement(YangdoCalc, null), tab === "ye" && React.createElement(YearEndCalc, null), tab === "hi" && React.createElement(HiSettleCalc, null), React.createElement("div", {
+    onClick: () => goSub(k),
+    color: "#2F5D8C"
+  }))), tab === "pen" && React.createElement(PenaltyCalc, null), tab === "pay" && React.createElement(PayTab, null), tab === "ret" && React.createElement(RetireCalc, null), tab === "ye" && React.createElement(YearEndCalc, null), tab === "hi" && React.createElement(HiSettleCalc, null), tab === "ih" && React.createElement(InheritCalc, null), tab === "gf" && React.createElement(GiftCalc, null), tab === "yd" && React.createElement(YangdoCalc, null), React.createElement("div", {
     style: {
       fontSize: 12,
       color: C.sub,
