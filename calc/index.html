@@ -1807,9 +1807,10 @@ const TAXCALC = {
       gsRate = s.gsMinor20 ? 40 : 30;
     const gst = gs && !s.gsSubst && gsBase ? fl(calc * Math.min(1, gs / gsBase) * gsRate / 100) : 0;
     if (gs && s.gsSubst) warn.push("대습상속은 세대생략 할증을 하지 않습니다(제27조 단서).");
-    const lim28 = taxable > Q.gift5 && base ? fl(calc * Math.min(1, num(s.giftBase) / base)) : 0,
-      gCredit = Math.min(num(s.giftTax), lim28);
-    if (num(s.giftTax) && taxable <= Q.gift5) warn.push("상속세 과세가액이 5억 원 이하라 증여세액공제를 하지 않습니다(제28조 ① 단서).");
+    const gTax = gift ? num(s.giftTax) : 0,
+      lim28 = taxable > Q.gift5 && base ? fl(calc * Math.min(1, (gift ? num(s.giftBase) : 0) / base)) : 0,
+      gCredit = Math.min(gTax, lim28);
+    if (gTax && taxable <= Q.gift5) warn.push("상속세 과세가액이 5억 원 이하라 증여세액공제를 하지 않습니다(제28조 ① 단서).");
     if (giftHeir && gCredit) warn.push("사전증여받은 사람이 상속인이면 증여세액공제는 상속인별 한도(제28조 ② 후단)로 다시 확인하세요 — 이 계산은 전체 한도만 적용했습니다.");
     const before = calc + gst - gCredit,
       credit = Math.min(num(s.credit), Math.max(0, before));
@@ -1840,7 +1841,7 @@ const TAXCALC = {
     R("과세표준", "원 미만 버림(제25조 ①)", base);
     R("산출세액", low ? "50만 원 미만 — 부과 안 함(제25조 ②)" : "10~50% 누진(제26조)", calc);
     if (gst) R("세대생략 할증", `산출세액 × ${won(gs)}원 ÷ ${won(gsBase)}원 × ${gsRate}%(제27조, 국세청 서면4팀-1447)`, gst);
-    if (gCredit) R("증여세액공제", `증여세 산출세액 ${won(num(s.giftTax))}원, 한도 ${won(lim28)}원(제28조)`, -gCredit);
+    if (gCredit) R("증여세액공제", `증여세 산출세액 ${won(gTax)}원, 한도 ${won(lim28)}원(제28조)`, -gCredit);
     if (credit) R("그 밖의 세액공제·감면", "입력한 금액(외국납부 제29조·단기재상속 제30조 등)", -credit);
     if (rep) R("신고세액공제", "(산출 + 할증 − 세액공제·감면) × 3%(제69조 ①)", -rep);
     R("납부할 상속세", "10원 미만 버림(국고금 관리법 제47조)", pay);
@@ -5389,7 +5390,7 @@ function InheritCalc() {
   })))), s.presume.length < 4 && React.createElement("button", {
     type: "button",
     style: {
-      ...tBtn,
+      ...tBtn(false),
       fontSize: 12
     },
     onClick: () => setS(o => ({
@@ -5788,7 +5789,9 @@ function YangdoCalc() {
   }, numIn("resideY")), React.createElement(CalcField, {
     label: "1\uC138\uB300 \uC8FC\uD0DD \uC218(\uC785\uC8FC\uAD8C\xB7\uBD84\uC591\uAD8C \uD3EC\uD568)",
     hint: "\uC911\uACFC\uB294 \uC870\uC815\uB300\uC0C1\uC9C0\uC5ED \uC8FC\uD0DD\uB9CC(\uC81C104\uC870 \u2466)"
-  }, sel("houses", [["1", "1세대 1주택"], ["2", "1세대 2주택"], ["3", "1세대 3주택 이상"]])), ck("adjusted", "조정대상지역 주택"), s.adjusted && +s.houses >= 2 && ck("heavyEx", "중과 제외 주택", "시행령 제167조의3·제167조의10 제외 사유"))), React.createElement("div", {
+  }, sel("houses", [["1", "1세대 1주택"], ["2", "1세대 2주택"], ["3", "1세대 3주택 이상"]])), ck("adjusted", "조정대상지역 주택"), s.adjusted && +s.houses >= 2 && ck("heavyEx", "중과 제외 주택", "시행령 제167조의3·제167조의10 제외 사유"))), s.kind === "ticket" && React.createElement("div", {
+    style: calcGrid
+  }, ck("exempt", "1세대1주택 비과세 요건 충족(조합원입주권)", "소득세법 제89조 — 요건은 직접 확인. 계산은 이 체크가 있을 때 비과세를 적용")), React.createElement("div", {
     style: sub
   }, "\uAC10\uBA74 \xB7 \uACF5\uC81C"), React.createElement("div", {
     style: calcGrid
