@@ -756,6 +756,8 @@ try { BOOT = JSON.parse($('#boot').textContent); } catch (e) {}
 const DEMO = !BOOT || typeof google === 'undefined' || !google.script;
 if (DEMO) BOOT = { key: 'demo', role: 'admin', me: '대표', title: '더바른 세무회계 팀 대시보드 (데모)', members: ['대표','김세무','이회계','박주임','최사원','정인턴'] };
 let MEMBERS = BOOT.members; // 멤버 관리에서 바뀌면 다시 받아온다
+let TITLES = {}; /* 이름 → 직급(getTasks 가 줌) — 화면에는 '이름 직급'(2026-11-17 대표님 요청), 저장·비교는 이름 그대로 */
+const nmT = n => { const s = String(n || '').trim(), t = String(TITLES[s] || '').trim(); return !s || !t || s === t || ['대표', '세무사', '회계사', '실장', '팀장', '과장', '대리', '주임', '사원', t].some(w => s.endsWith(w)) ? s : s + ' ' + t; };
 const IS_ADMIN = BOOT.role === 'admin';
 const IS_MANAGER = BOOT.role === 'manager';
 const CAN_MANAGE = IS_ADMIN || IS_MANAGER; // 대표·관리자: 모든 지시 보기·멤버 관리
@@ -846,6 +848,7 @@ async function load(silent){
   const res = await Promise.allSettled([
     call('getTasks').then(take('tasks', d => {
       if (d.members) MEMBERS = d.members;
+      if (d.titles) TITLES = d.titles;
       S.tasks = d.tasks; S.lists = d.lists; S.loaded = true; overlayAll();
       renderSpace(); renderStats(); renderChips(); renderTasks(); checkNew();
     })),
@@ -865,14 +868,14 @@ const SNAP = 'tdb.snap.' + BOOT.key;
 function saveSnap(){
   const clean = a => (a || []).filter(x => !isTmp(x.id));
   try {
-    localStorage.setItem(SNAP, JSON.stringify({ tasks: clean(S.tasks), lists: S.lists, notes: clean(S.notes), mymemos: clean(S.mymemos), events: clean(S.events), members: MEMBERS },
+    localStorage.setItem(SNAP, JSON.stringify({ tasks: clean(S.tasks), lists: S.lists, notes: clean(S.notes), mymemos: clean(S.mymemos), events: clean(S.events), members: MEMBERS, titles: TITLES },
       (k, v) => k === '_op' ? undefined : v));
   } catch (e) {}
 }
 function restoreSnap(){
   try {
     const d = JSON.parse(localStorage.getItem(SNAP) || 'null'); if (!d) return false;
-    S.tasks = d.tasks || []; S.lists = d.lists; S.notes = d.notes || []; S.mymemos = d.mymemos || []; S.events = d.events || []; if (d.members) MEMBERS = d.members;
+    S.tasks = d.tasks || []; S.lists = d.lists; S.notes = d.notes || []; S.mymemos = d.mymemos || []; S.events = d.events || []; if (d.members) MEMBERS = d.members; if (d.titles) TITLES = d.titles;
     S.loaded = true; overlayAll(); renderAll(); return true;
   } catch (e) { return false; }
 }
@@ -947,7 +950,7 @@ function renderChips(){
   const open = spaceTasks().filter(x => S.tab === 'done' ? x.done : !x.done);
   const cnt = f => open.filter(x => f === 'all' ? true : f === 'in' ? x.assignee === S.me : f === 'out' ? x.requester === S.me : x.assignee === f).length;
   // 대표는 담당자별로도 볼 수 있다
-  const chips = [['all','전체'], ['in','받은 지시'], ['out','보낸 지시']].concat(CAN_MANAGE ? MEMBERS.filter(m => m !== S.me).map(m => [m, m]) : []);
+  const chips = [['all','전체'], ['in','받은 지시'], ['out','보낸 지시']].concat(CAN_MANAGE ? MEMBERS.filter(m => m !== S.me).map(m => [m, nmT(m)]) : []);
   $('#chips').innerHTML = chips.map(([v, label]) =>
     '<button class="chip" data-filter="' + esc(v) + '" aria-pressed="' + (S.filter === v) + '">' +
     (MEMBERS.indexOf(v) >= 0 ? av(v) : '') + esc(label) + ' <span class="n">' + cnt(v) + '</span></button>'
@@ -962,12 +965,12 @@ function taskItem(x){
   if (S.space === 'mine') {
     // 내 할 일에서는 담당자(=나) 대신 어디에 있는 할 일인지 표시
     meta.push(x.team
-      ? '<span class="src team">' + icon('users') + (x.requester ? '지시 · ' + esc(x.requester) : '팀') + '</span>'
+      ? '<span class="src team">' + icon('users') + (x.requester ? '지시 · ' + esc(nmT(x.requester)) : '팀') + '</span>'
       : '<span class="src mine">' + icon('lock') + esc(x.listTitle || '개인') + '</span>');
   } else if (x.assignee) {
     // 지시자 → 담당자
-    meta.push('<span class="flow">' + (x.requester ? av(x.requester) + esc(x.requester) + ' →' : '') + '</span>' +
-      '<span class="who">' + av(x.assignee) + esc(x.assignee) + (x.assignee === S.me ? ' (나)' : '') + '</span>');
+    meta.push('<span class="flow">' + (x.requester ? av(x.requester) + esc(nmT(x.requester)) + ' →' : '') + '</span>' +
+      '<span class="who">' + av(x.assignee) + esc(nmT(x.assignee)) + (x.assignee === S.me ? ' (나)' : '') + '</span>');
   }
   if (x.due) meta.push('<span class="due ' + dueCls + '">' + esc(dueLabel(x.due)) + '</span>');
   if (!x.done && ST_LABEL[x.status]) meta.push('<span class="stchip ' + (x.status === '검토대기' ? 'rv' : 'pg') + '">' + ST_LABEL[x.status] + '</span>');
@@ -1022,7 +1025,7 @@ function renderNotes(){
     '<button class="note-card" data-note="' + esc(n.id) + '" style="--nc:var(--n-' + esc(n.color || 'default') + ')">' +
       '<div class="note-top"><strong>' + esc(n.title || '(제목 없음)') + '</strong>' + (n.pinned ? '<svg class="i" aria-label="고정됨"><use href="#i-pin"/></svg>' : '') + '</div>' +
       (n.body ? '<div class="note-body">' + esc(n.body) + '</div>' : '') +
-      '<div class="note-foot">' + esc(n.author || '') + (n.author ? ' · ' : '') + ago(n.updated) + saveFlag(n) + '</div>' +
+      '<div class="note-foot">' + esc(nmT(n.author)) + (n.author ? ' · ' : '') + ago(n.updated) + saveFlag(n) + '</div>' +
     '</button>'
   ).join('') : '<div class="empty" style="grid-column:1/-1">팀이 함께 볼 메모를 남겨 보세요.</div>';
 }
@@ -1092,7 +1095,7 @@ function renderEvents(){
 }
 
 function fillWho(sel, value){
-  sel.innerHTML = MEMBERS.map(m => '<option' + (m === value ? ' selected' : '') + '>' + esc(m) + '</option>').join('');
+  sel.innerHTML = MEMBERS.map(m => '<option value="' + esc(m) + '"' + (m === value ? ' selected' : '') + '>' + esc(nmT(m)) + '</option>').join('');
 }
 
 // 담당자 여러 명 선택. '전체 배정'은 나를 뺀 팀원 모두
@@ -1102,7 +1105,7 @@ function renderPick(){
   $('#qPick').innerHTML = '<span class="pick-lbl">담당자</span>' +
     '<button type="button" class="chip all" data-pick="*" aria-pressed="' + allOn + '">전체 배정</button>' +
     MEMBERS.map(m => '<button type="button" class="chip" data-pick="' + esc(m) + '" aria-pressed="' + (S.pick.indexOf(m) >= 0) + '">' +
-      av(m) + esc(m) + (m === S.me ? ' (나)' : '') + '</button>').join('');
+      av(m) + esc(nmT(m)) + (m === S.me ? ' (나)' : '') + '</button>').join('');
 }
 $('#qPick').addEventListener('click', e => {
   const b = e.target.closest('[data-pick]'); if (!b) return;
@@ -1344,8 +1347,8 @@ function renderThread(){
   el.innerHTML = '<div class="tst"><b>상태</b><span class="stchip ' + (x.status === '검토대기' ? 'rv' : 'pg') + '">' + (x.done ? '✓ 완료' : ST_LABEL[x.status] || '할 일') + '</span><span class="sp"></span>' + btn.join('') + '</div>' +
     '<div class="tsys" style="font-weight:600">댓글</div>' +
     (list.length ? list.map(c => c.kind === 'sys'
-      ? '<div class="tsys">· ' + esc(c.who) + ' ' + esc(c.text) + ' ' + tmTime(c.at) + '</div>'
-      : '<div class="tcm' + (c.who === S.me ? ' me' : '') + '"><div class="w"><b>' + esc(c.who) + '</b> · ' + tmTime(c.at) + (isTmp(c.id) ? ' · 저장 중' : '') + '</div>' + esc(c.text).replace(/⟦📂\d{10}⟧/g, '거래처 폴더(PC 대시보드에서 열림)') + '</div>').join('')
+      ? '<div class="tsys">· ' + esc(nmT(c.who)) + ' ' + esc(c.text) + ' ' + tmTime(c.at) + '</div>'
+      : '<div class="tcm' + (c.who === S.me ? ' me' : '') + '"><div class="w"><b>' + esc(nmT(c.who)) + '</b> · ' + tmTime(c.at) + (isTmp(c.id) ? ' · 저장 중' : '') + '</div>' + esc(c.text).replace(/⟦📂\d{10}⟧/g, '거래처 폴더(PC 대시보드에서 열림)') + '</div>').join('')
       : '<div class="tsys">아직 댓글이 없습니다.</div>') +
     '<div class="tsend"><textarea id="tMsg" class="textarea" maxlength="2000" placeholder="댓글 · 다시 요청 이유" aria-label="댓글"></textarea><button type="button" class="btn sm primary" data-send>댓글 달기</button></div>';
   $('#tMsg').value = keep;
@@ -1536,7 +1539,7 @@ function renderAlert(){
   const from = Array.from(new Set(S.fresh.map(x => x.requester)));
   $('#alertTitle').textContent = '새 업무 지시 ' + n + '건' + (from.length === 1 ? ' · ' + from[0] + '님' : '');
   $('#alertList').innerHTML = S.fresh.slice(0, 3).map(x =>
-    '<li><b>' + esc(x.title) + '</b>' + (x.due ? ' · ' + esc(dueLabel(x.due)) : '') + (from.length > 1 ? ' · ' + esc(x.requester) : '') + '</li>').join('') +
+    '<li><b>' + esc(x.title) + '</b>' + (x.due ? ' · ' + esc(dueLabel(x.due)) : '') + (from.length > 1 ? ' · ' + esc(nmT(x.requester)) : '') + '</li>').join('') +
     (n > 3 ? '<li>외 ' + (n - 3) + '건</li>' : '');
 }
 $('#alertGo').addEventListener('click', () => {
@@ -1687,13 +1690,13 @@ function renderAccess(){
   const names = M ? [M.admin.name].concat(M.members.map(x => x.name)) : [];
   const list = AL.rows, since = Date.now() - 30 * 86400000;
   const sum = names.map(n => { const mine = list.filter(r => r.name === n), l = mine[0];
-    return '<tr><td>' + esc(n) + '</td><td>' + (l ? fmtT(l.t) : '<span style="color:var(--muted)">기록 없음</span>') + '</td><td>' + (l ? esc(l.via + ' · ' + l.what) : '') + '</td><td class="r">' + mine.filter(r => r.t >= since).length + '회</td></tr>'; }).join('');
+    return '<tr><td>' + esc(nmT(n)) + '</td><td>' + (l ? fmtT(l.t) : '<span style="color:var(--muted)">기록 없음</span>') + '</td><td>' + (l ? esc(l.via + ' · ' + l.what) : '') + '</td><td class="r">' + mine.filter(r => r.t >= since).length + '회</td></tr>'; }).join('');
   const shown = list.filter(r => !alWho || r.name === alWho).slice(0, 100);
   box.innerHTML = '<div style="overflow-x:auto"><table class="lv-table al-table"><thead><tr><th scope="col">이름</th><th scope="col">마지막 접속</th><th scope="col">방식</th><th scope="col">최근 30일</th></tr></thead><tbody>' + sum + '</tbody></table></div>' +
     '<div style="display:flex;align-items:center;gap:8px;margin:16px 0 6px;flex-wrap:wrap"><b style="font-size:13px">최근 기록</b><select class="select" id="alWho" aria-label="사람 고르기" style="height:32px;font-size:13px;width:auto"><option value="">전체</option>' +
-    names.map(n => '<option value="' + esc(n) + '"' + (n === alWho ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select><small style="color:var(--muted);margin-left:auto">최근 ' + shown.length + '건 · 대시보드를 열면 30분에 한 번만 남습니다</small></div>' +
+    names.map(n => '<option value="' + esc(n) + '"' + (n === alWho ? ' selected' : '') + '>' + esc(nmT(n)) + '</option>').join('') + '</select><small style="color:var(--muted);margin-left:auto">최근 ' + shown.length + '건 · 대시보드를 열면 30분에 한 번만 남습니다</small></div>' +
     (shown.length ? '<div style="max-height:360px;overflow:auto"><table class="lv-table al-table"><thead><tr><th scope="col">시각</th><th scope="col">이름</th><th scope="col">방식</th><th scope="col">구분</th></tr></thead><tbody>' +
-      shown.map(r => '<tr><td>' + fmtT(r.t) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.via) + '</td><td>' + esc(r.what) + '</td></tr>').join('') + '</tbody></table></div>'
+      shown.map(r => '<tr><td>' + fmtT(r.t) + '</td><td>' + esc(nmT(r.name)) + '</td><td>' + esc(r.via) + '</td><td>' + esc(r.what) + '</td></tr>').join('') + '</tbody></table></div>'
       : '<p class="space-desc">기록이 없습니다.</p>');
 }
 async function loadAccess(){
@@ -1781,11 +1784,11 @@ async function leaveWrite(fn, args){
 
 function leaveItem(x){
   const st = LEAVE_STATUS[x.status] || LEAVE_STATUS['취소'], L = LV.d, dis = LV.busy ? ' disabled' : '', id = esc(x.id);
-  const sub = [x.reason ? esc(x.reason) : '', x.at ? '신청 ' + ago(x.at) : '', x.by ? (x.status === '취소' ? '취소 ' : '처리 ') + esc(x.by) : ''].filter(Boolean).join(' · ');
+  const sub = [x.reason ? esc(x.reason) : '', x.at ? '신청 ' + ago(x.at) : '', x.by ? (x.status === '취소' ? '취소 ' : '처리 ') + esc(nmT(x.by)) : ''].filter(Boolean).join(' · ');
   const acts = (L.boss && x.status === '신청' ? '<button class="btn sm primary" data-lv="ok" data-id="' + id + '"' + dis + '>승인</button><button class="btn sm danger" data-lv="no" data-id="' + id + '"' + dis + '>반려</button>' : '') +
     (canChangeLeave(x) ? '<button class="btn sm" data-lv="edit" data-id="' + id + '"' + dis + '>수정</button><button class="btn sm" data-lv="cancel" data-id="' + id + '"' + dis + '>취소</button>' : '');
   return '<div class="lv-item' + (st[0] === 'off' || st[0] === 'bad' ? ' off' : '') + '"><div class="lv-main">' +
-    '<div class="lv-top">' + (L.boss ? '<span>' + esc(x.name) + '</span>' : '') + '<span>' + esc(fmtDates(x.dates)) + '</span><span class="tag">' + esc(x.type || '연차') + '</span><small>' + esc(x.kind) + ' · ' + fmtDays(x.days) + '</small><span class="lv-st ' + st[0] + '">' + st[1] + '</span></div>' +
+    '<div class="lv-top">' + (L.boss ? '<span>' + esc(nmT(x.name)) + '</span>' : '') + '<span>' + esc(fmtDates(x.dates)) + '</span><span class="tag">' + esc(x.type || '연차') + '</span><small>' + esc(x.kind) + ' · ' + fmtDays(x.days) + '</small><span class="lv-st ' + st[0] + '">' + st[1] + '</span></div>' +
     (sub ? '<div class="lv-sub">' + sub + '</div>' : '') + '</div>' + (acts ? '<div class="lv-acts">' + acts + '</div>' : '') + '</div>';
 }
 function renderLeave(){
@@ -1813,7 +1816,7 @@ function renderLeave(){
   $('#lvNote').hidden = !notes.length; $('#lvNote').textContent = notes.join(' · ');
 
   $('#lvTeamCard').hidden = !L.boss;
-  if (L.boss) $('#lvTeam').innerHTML = L.members.map(n => { const r = leaveRow(n); return '<tr><td>' + esc(n) + '</td><td>' + (r.g == null ? '—' : fmtDays(r.g) + (r.auto ? ' 자동' : '')) + '</td><td>' + fmtDays(r.done) + '</td><td>' + fmtDays(r.plan) + '</td><td>' + fmtDays(r.wait) + '</td><td class="left' + (r.left != null && r.left < 0 ? ' warn' : '') + '">' + (r.left == null ? '—' : fmtDays(r.left)) + '</td></tr>'; }).join('');
+  if (L.boss) $('#lvTeam').innerHTML = L.members.map(n => { const r = leaveRow(n); return '<tr><td>' + esc(nmT(n)) + '</td><td>' + (r.g == null ? '—' : fmtDays(r.g) + (r.auto ? ' 자동' : '')) + '</td><td>' + fmtDays(r.done) + '</td><td>' + fmtDays(r.plan) + '</td><td>' + fmtDays(r.wait) + '</td><td class="left' + (r.left != null && r.left < 0 ? ' warn' : '') + '">' + (r.left == null ? '—' : fmtDays(r.left)) + '</td></tr>'; }).join('');
 
   $('#hLvList').textContent = L.boss ? '휴가 신청 목록' : '내 휴가 신청';
   const opts = (cur, first, vals) => '<option value="">' + first + '</option>' + vals.map(v => '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
@@ -2037,7 +2040,7 @@ function renderClients(){
   list.forEach(c => { const m = clMgr(c); if (m) mgrs[m] = (mgrs[m] || 0) + 1; });
   const names = Object.keys(mgrs).sort((a, b) => (b === S.me) - (a === S.me) || (a === '미지정') - (b === '미지정') || mgrs[b] - mgrs[a]);
   $('#clChips').innerHTML = names.length ? ['<button class="chip" data-mgr="" aria-pressed="' + !CL.mgr + '">전체</button>']
-    .concat(names.map(m => '<button class="chip" data-mgr="' + esc(m) + '" aria-pressed="' + (CL.mgr === m) + '">' + esc(m) + ' <span class="n">' + mgrs[m] + '</span></button>')).join('') : '';
+    .concat(names.map(m => '<button class="chip" data-mgr="' + esc(m) + '" aria-pressed="' + (CL.mgr === m) + '">' + esc(nmT(m)) + ' <span class="n">' + mgrs[m] + '</span></button>')).join('') : '';
   const q = CL.q.trim().toLowerCase(), qd = q.replace(/\D/g, '');
   const nOut = list.filter(c => CL.out[c.bsno]).length;
   if (nOut) $('#clChips').innerHTML += '<button class="chip" data-out aria-pressed="' + CL.onlyOut + '">보낼 링크 <span class="n">' + nOut + '</span></button>';
@@ -2078,7 +2081,7 @@ function openClient(b){
     + mpSection(b)
     + (f['메모'] ? '<div class="cd-memo"><span>메모</span>' + esc(f['메모']) + '</div>' : '')
     + secs
-    + '<p class="cd-foot">' + (c.by ? '마지막 수정 ' + esc(c.by) + ' · ' + esc(new Date(c.updated).toLocaleDateString('ko-KR')) + '<br>' : '') + '수정은 PC 세무대시보드 거래처 현황에서 합니다.</p>';
+    + '<p class="cd-foot">' + (c.by ? '마지막 수정 ' + esc(nmT(c.by)) + ' · ' + esc(new Date(c.updated).toLocaleDateString('ko-KR')) + '<br>' : '') + '수정은 PC 세무대시보드 거래처 현황에서 합니다.</p>';
   const d = $('#clientDlg'); if (!d.open) { d.showModal(); $('#cdBody').scrollTop = 0; }
   if (CL.out[b] && CL.box[b] === undefined) mpLoad(b);
 }
