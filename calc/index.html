@@ -655,6 +655,26 @@ const TAXCALC_YANGDO = {
   grace: ["2022-05-10", "2026-05-09"],
   efile: 20000
 };
+const TAXCALC_GIFT = {
+  from: "2019-01-01",
+  marryFrom: "2024-01-01",
+  ded: {
+    spouse: 6e8,
+    parent: 5e7,
+    grand: 5e7,
+    desc: 5e7,
+    kin: 1e7,
+    other: 0
+  },
+  minorDed: 2e7,
+  marry: 1e8,
+  aggMin: 1e7,
+  minTax: 5e5,
+  apprCap: 5e6,
+  stockCap: 1e7,
+  surBig: 2e9,
+  credit: 0.03
+};
 const TAXCALC = {
   rateFor(ym) {
     const warn = [],
@@ -2033,6 +2053,124 @@ const TAXCALC = {
     const b = Math.max(0, Math.floor(base + 1e-6)),
       r = T.find(x => b <= x[0]);
     return Math.max(0, Math.floor(b * r[1] / 100 - r[2] + 1e-6));
+  },
+  gift(s) {
+    const Q = TAXCALC_GIFT,
+      warn = [],
+      rows = [],
+      num = v => Math.max(0, +v || 0),
+      fl = x => Math.floor(x + 1e-6);
+    const rel = Q.ded[s.rel] === undefined ? "parent" : s.rel,
+      asc = rel === "parent" || rel === "grand";
+    const val = num(s.value),
+      debt = num(s.debt),
+      priorVal = num(s.priorVal);
+    if (!s.giftDate || !val) return {
+      err: "증여일·이번 증여재산가액을 넣으면 계산합니다.",
+      warn,
+      rows
+    };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.giftDate)) return {
+      err: "증여일을 YYYY-MM-DD 로 넣으세요.",
+      warn,
+      rows
+    };
+    if (s.giftDate < Q.from) return {
+      err: `증여일 ${Q.from} 이후만 계산합니다(그 전 증여는 신고세액공제율이 다름).`,
+      warn,
+      rows
+    };
+    if (debt > val) return {
+      err: "인수채무가 증여재산가액보다 큽니다.",
+      warn,
+      rows
+    };
+    const agg = priorVal > 0 && val + priorVal >= Q.aggMin ? priorVal : 0;
+    if (agg && priorVal < Q.aggMin) warn.push("이전 증여만으로는 1천만 원 미만이지만 이번 증여와 합쳐 1천만 원 이상이라 합산했습니다 — 이번 증여를 넣어 판단하는지는 해석례로 확인하지 못했습니다[추정](제47조 ②).");
+    if (priorVal && !agg) warn.push("이전 증여와 이번 증여 합계가 1천만 원 미만이라 합산하지 않았습니다(제47조 ②) — 그 이전 증여에서 받은 증여재산공제는 '10년 안 이미 받은 증여재산공제' 칸에 넣으세요(제53조 후단).");
+    const taxable = val - debt + agg;
+    const lim = asc && s.minor ? Q.minorDed : Q.ded[rel],
+      usedDed = num(s.usedDed);
+    const ded = s.nonres ? 0 : Math.min(Math.max(0, lim - usedDed), taxable);
+    const marryOk = !!s.marry && asc && !s.nonres && s.giftDate >= Q.marryFrom;
+    if (s.marry && asc && !marryOk) warn.push(s.nonres ? "비거주자는 혼인·출산 증여재산공제를 받지 못합니다(제53조의2 ①)." : `혼인·출산 증여재산공제는 ${Q.marryFrom} 이후 증여부터입니다(2023.12.31. 개정 부칙 제3조).`);
+    const mDed = marryOk ? Math.min(Math.max(0, Q.marry - num(s.usedMarry)), taxable - ded) : 0;
+    const apprIn = num(s.apprFee),
+      stockFee = num(s.stockFee),
+      appr = Math.min(apprIn, Q.apprCap) + stockFee;
+    if (apprIn > Q.apprCap) warn.push(`감정평가 수수료는 ${won(Q.apprCap)}원까지만 공제합니다(시행령 제20조의3 ③).`);
+    if (stockFee > Q.stockCap) warn.push(`비상장주식 평가수수료는 평가대상 법인·신용평가기관별로 각 ${won(Q.stockCap)}원 한도입니다 — 입력액 그대로 뺐으니 한도를 확인하세요(시행령 제20조의3 ③).`);
+    const base = Math.max(0, fl(taxable - ded - mDed - appr)),
+      small = base > 0 && base < Q.minTax;
+    const calc = base < Q.minTax ? 0 : TAXCALC.sjTax(base);
+    const surOn = rel === "grand" && !s.orphan,
+      big = !!s.minor && val + agg > Q.surBig,
+      surRate = surOn ? big ? 40 : 30 : 0;
+    const priorSur = agg ? num(s.priorSur) : 0,
+      sur = surOn ? Math.max(0, fl(calc * surRate / 100) - priorSur) : 0;
+    const priorTax = num(s.priorTax),
+      priorBase = num(s.priorBase);
+    const crLim = agg && base ? fl(calc * Math.min(priorBase, base) / base) : 0;
+    const cr = agg && !s.priorExpired ? Math.min(priorTax, crLim) : 0;
+    if (agg && priorTax && !priorBase) warn.push("이전 증여의 과세표준을 넣어야 납부세액공제 한도를 계산합니다(제58조 ②).");
+    const other = num(s.otherCredit),
+      pre = Math.max(0, calc + sur - cr - other),
+      fileCr = s.late ? 0 : fl(pre * Q.credit);
+    const pay = TAXCALC.f10(Math.max(0, pre - fileCr)),
+      split = s.late ? 0 : pay > 2e7 ? TAXCALC.f10(pay / 2) : pay > 1e7 ? pay - 1e7 : 0;
+    const [gy, gm] = s.giftDate.split("-").map(Number),
+      due = new Date(Date.UTC(gy, gm + 3, 0)).toISOString().slice(0, 10);
+    if (debt && (rel === "spouse" || asc || rel === "desc")) warn.push("배우자·직계존비속 사이 부담부증여는 수증자가 채무를 인수하지 않은 것으로 추정합니다 — 금융기관 대출·임대보증금 등 객관적으로 인정되는 채무만 뺄 수 있습니다(제47조 ③).");
+    if (debt) warn.push(`부담부증여 — 증여자에게 채무 부분 양도소득세가 따로 나옵니다(소득세법 제88조 1호). 양도가액 = 평가액 × 채무 ÷ 증여가액 = ${won(debt)}원, 취득가액 = 증여자 취득가액 × ${Math.round(debt / val * 10000) / 100}%(소득세법 시행령 제159조 ①) — 양도세 탭에서 계산하세요.`);
+    if (rel === "grand" && s.orphan) warn.push("부모(최근친 직계비속)가 사망해 손자녀가 받은 증여 — 세대생략 할증을 하지 않았습니다(제57조 ① 단서).");
+    if (small) warn.push(`과세표준이 ${won(Q.minTax)}원 미만이라 증여세를 부과하지 않습니다(제55조 ②).`);
+    if (agg && s.priorExpired) warn.push("이전 증여에 부과제척기간이 지나 증여세가 부과되지 않았으면 합산은 하되 납부세액공제는 하지 않습니다(제58조 ① 단서).");
+    const relTxt = {
+      spouse: "배우자 6억 원(제53조 1호)",
+      parent: s.minor ? "직계존속 — 미성년 2천만 원(제53조 2호 단서)" : "직계존속 5천만 원(제53조 2호)",
+      grand: s.minor ? "직계존속 — 미성년 2천만 원(제53조 2호 단서)" : "직계존속 5천만 원(제53조 2호)",
+      desc: "직계비속 5천만 원(제53조 3호)",
+      kin: "기타친족 1천만 원(제53조 4호)",
+      other: "공제 없음(제53조)"
+    }[rel];
+    const R = (k, how, v) => rows.push({
+      k,
+      how,
+      v
+    });
+    R("증여재산가액", "증여일 현재 평가액(제60조~제66조 — 직접 평가해 입력)", val);
+    if (debt) R("인수채무", "증여재산에 담보된 채무로 수증자가 인수한 금액(제47조 ①)", -debt);
+    if (agg) R("증여재산가산액", "10년 안 같은 사람(직계존속이면 그 배우자 포함) 이전 증여 과세가액(제47조 ②)", agg);
+    R("증여세 과세가액", agg || debt ? "증여재산가액 − 인수채무 + 가산액" : "증여재산가액", taxable);
+    R("증여재산공제", s.nonres ? "비거주자 — 공제 없음(제53조 '거주자')" : `${relTxt}${usedDed ? ` − 10년 안 이미 받은 공제 ${won(usedDed)}원` : ""}, 과세가액 한도`, -ded);
+    if (mDed) R("혼인·출산 증여재산공제", `${s.marry === "birth" ? "출생·입양일부터 2년 안" : "혼인일 전후 2년 안"} 직계존속 증여 1억 원${num(s.usedMarry) ? ` − 이미 받은 ${won(num(s.usedMarry))}원` : ""}(제53조의2)`, -mDed);
+    if (appr) R("감정평가 수수료", "감정평가법인 500만 원·비상장주식 평가 1천만 원 한도(제55조 ①, 시행령 제46조의2·제20조의3)", -Math.min(appr, Math.max(0, taxable - ded - mDed)));
+    R("과세표준", small ? "50만 원 미만 — 과세최저한(제55조 ②)" : "원 미만 버림(제55조 ① 4호)", base);
+    R("산출세액", "과세표준 × 10~50% − 누진공제(제56조·제26조)", calc);
+    if (sur) R("세대생략 할증", `산출세액 × ${surRate}%${big ? "(미성년 · 증여재산가액 20억 원 초과)" : ""}${priorSur ? ` − 이전 할증 ${won(priorSur)}원` : ""}(제57조 ①, 시행령 제46조의3)`, sur);
+    if (cr) R("납부세액공제", `이전 증여 산출세액 ${won(priorTax)}원, 한도 = 산출세액 × 이전 과세표준 ÷ 이번 과세표준 = ${won(crLim)}원(제58조)`, -cr);
+    if (other) R("그 밖의 세액공제·감면", "입력한 금액(외국납부세액공제 등)", -other);
+    if (fileCr) R("신고세액공제", "(산출세액 + 할증 − 공제·감면) × 3% — 신고기한 안 신고(제69조 ②)", -fileCr);
+    R("납부할 증여세", "10원 미만 버림(국고금 관리법 제47조)", pay);
+    return {
+      warn,
+      rows,
+      taxable,
+      agg,
+      ded,
+      mDed,
+      appr,
+      base,
+      calc,
+      sur,
+      surRate,
+      crLim,
+      cr,
+      fileCr,
+      pay,
+      split,
+      due
+    };
   }
 };
 function CalcField({
@@ -5688,6 +5826,224 @@ function YangdoCalc() {
     t: "\uBC18\uC601\uD558\uC9C0 \uC54A\uC740 \uAC83"
   }, "2023\uB144 \uC804 \uC591\uB3C4 \xB7 \uC8FC\uC2DD\xB7\uD30C\uC0DD\uC0C1\uD488\xB7\uC2E0\uD0C1\uC218\uC775\uAD8C \xB7 \uBE44\uAC70\uC8FC\uC790 \xB7 \uC774\uC6D4\uACFC\uC138\xB7\uBD80\uB2F9\uD589\uC704 \uACC4\uC0B0 \xB7 \uC870\uD569\uC6D0\uC785\uC8FC\uAD8C \uAD00\uB9AC\uCC98\uBD84 \uC804\uD6C4 \uCC28\uC775 \uAD6C\uBD84 \xB7 \uBD80\uB2F4\uBD80\uC99D\uC5EC \xB7 \uC2E0\uACE0\xB7\uB0A9\uBD80\uC9C0\uC5F0 \uAC00\uC0B0\uC138(\uAC00\uC0B0\uC138 \uD0ED).")));
 }
+const GIFT_INIT = {
+  giftDate: "",
+  rel: "parent",
+  minor: false,
+  nonres: false,
+  orphan: false,
+  value: 0,
+  debt: 0,
+  priorVal: 0,
+  priorBase: 0,
+  priorTax: 0,
+  priorSur: 0,
+  priorExpired: false,
+  usedDed: 0,
+  marry: "",
+  usedMarry: 0,
+  apprFee: 0,
+  stockFee: 0,
+  otherCredit: 0,
+  late: false
+};
+function GiftCalc() {
+  const [s, setS] = useState(GIFT_INIT);
+  const up = k => v => setS(o => k === "rel" && v !== "parent" && v !== "grand" ? {
+    ...o,
+    rel: v,
+    marry: ""
+  } : {
+    ...o,
+    [k]: v
+  });
+  const r = TAXCALC.gift(s),
+    asc = s.rel === "parent" || s.rel === "grand";
+  const sel = (k, opts) => React.createElement("select", {
+    value: s[k],
+    onChange: e => up(k)(e.target.value),
+    style: {
+      ...tInput,
+      width: "100%"
+    }
+  }, opts.map(([v, t]) => React.createElement("option", {
+    key: v,
+    value: v
+  }, t)));
+  const ck = (k, t, hint) => React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, React.createElement("label", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: 13,
+      fontWeight: 600,
+      color: C.ink,
+      cursor: "pointer",
+      minHeight: 36
+    }
+  }, React.createElement("input", {
+    type: "checkbox",
+    checked: !!s[k],
+    onChange: e => up(k)(e.target.checked),
+    style: {
+      width: 16,
+      height: 16
+    }
+  }), t), hint && React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.sub
+    }
+  }, hint));
+  const box = (col, bg, children) => React.createElement("div", {
+    role: "note",
+    style: {
+      marginTop: 12,
+      padding: "10px 14px",
+      borderRadius: 10,
+      fontSize: 13,
+      lineHeight: 1.6,
+      background: bg,
+      color: col,
+      border: `1px solid ${col}55`
+    }
+  }, children);
+  const money = v => v < 0 ? `−${won(-v)}원` : `${won(v)}원`;
+  const sub = {
+    fontSize: 13,
+    fontWeight: 600,
+    color: C.ink,
+    margin: "16px 0 8px"
+  };
+  return React.createElement(Card, null, React.createElement(CardTitle, {
+    right: "\uC0C1\uC18D\uC138 \uBC0F \uC99D\uC5EC\uC138\uBC95 \uC81C47\uC870~\uC81C58\uC870 \xB7 \uC81C68\uC870~\uC81C70\uC870"
+  }, "\uC99D\uC5EC\uC138"), React.createElement("div", {
+    style: sub
+  }, "\uC99D\uC5EC\uC790 \xB7 \uC218\uC99D\uC790"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "\uC99D\uC5EC\uC77C",
+    hint: "2019-01-01 \uC774\uD6C4\uB9CC \uACC4\uC0B0 \xB7 \uC2E0\uACE0\uAE30\uD55C = \uC99D\uC5EC\uBC1B\uC740 \uB0A0\uC774 \uC18D\uD55C \uB2EC \uB9D0\uC77C\uBD80\uD130 3\uAC1C\uC6D4(\uC81C68\uC870)"
+  }, React.createElement("input", {
+    type: "date",
+    value: s.giftDate,
+    onChange: e => up("giftDate")(e.target.value),
+    style: {
+      ...tInput,
+      width: "100%"
+    }
+  })), React.createElement(CalcField, {
+    label: "\uC99D\uC5EC\uC790(\uC218\uC99D\uC790 \uAE30\uC900 \uAD00\uACC4)",
+    hint: s.rel === "kin" ? "2025-03-14 이후 증여 = 4촌 이내 혈족·3촌 이내 인척(그 전은 6촌·4촌 — 개정 부칙 제4조). 며느리·사위 ← 시부모·장인장모는 기타친족이고 두 분 증여를 합산하지 않음" : s.rel === "parent" ? "계부·계모(혼인 중) 포함(제53조 2호)" : ""
+  }, sel("rel", [["parent", "부모(직계존속)"], ["grand", "조부모 등(세대생략)"], ["spouse", "배우자"], ["desc", "자녀 등 직계비속"], ["kin", "기타친족"], ["other", "그 밖의 사람"]])), asc && ck("minor", "수증자 미성년", "증여일 현재 19세 미만 — 공제 2천만 원(제53조 2호 단서)"), s.rel === "grand" && ck("orphan", "부모가 사망해 손자녀가 받음", "최근친 직계비속 사망 — 할증 없음(제57조 ① 단서)"), ck("nonres", "수증자 비거주자", "증여재산공제·혼인출산공제 없음(제53조·제53조의2 '거주자')")), React.createElement("div", {
+    style: sub
+  }, "\uC774\uBC88 \uC99D\uC5EC"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "\uC99D\uC5EC\uC7AC\uC0B0\uAC00\uC561",
+    hint: "\uC99D\uC5EC\uC77C \uD604\uC7AC \uC2DC\uAC00 \uB4F1\uC73C\uB85C \uD3C9\uAC00\uD55C \uAE08\uC561(\uC81C60\uC870~\uC81C66\uC870)"
+  }, React.createElement(MoneyIn, {
+    v: s.value,
+    set: up("value")
+  })), React.createElement(CalcField, {
+    label: "\uC778\uC218\uCC44\uBB34",
+    hint: "\uBD80\uB2F4\uBD80\uC99D\uC5EC \u2014 \uB2F4\uBCF4\uB41C \uCC44\uBB34\xB7\uC784\uB300\uBCF4\uC99D\uAE08 \uC911 \uC218\uC99D\uC790\uAC00 \uC778\uC218\uD55C \uAE08\uC561(\uC81C47\uC870 \u2460)"
+  }, React.createElement(MoneyIn, {
+    v: s.debt,
+    set: up("debt")
+  }))), React.createElement("div", {
+    style: sub
+  }, "10\uB144 \uC548 \uAC19\uC740 \uC0AC\uB78C\uC5D0\uAC8C \uBC1B\uC740 \uC774\uC804 \uC99D\uC5EC(\uC9C1\uACC4\uC874\uC18D\uC774\uBA74 \uADF8 \uBC30\uC6B0\uC790 \uD3EC\uD568 \u2014 \uC81C47\uC870 \u2461)"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "\uC774\uC804 \uC99D\uC5EC \uACFC\uC138\uAC00\uC561 \uD569\uACC4",
+    hint: "\uC778\uC218\uCC44\uBB34\uB97C \uBE80 \uAE08\uC561 \xB7 \uC774\uBC88\uACFC \uD569\uCCD0 1\uCC9C\uB9CC \uC6D0 \uC774\uC0C1\uC774\uBA74 \uAC00\uC0B0"
+  }, React.createElement(MoneyIn, {
+    v: s.priorVal,
+    set: up("priorVal")
+  })), s.priorVal > 0 && React.createElement(CalcField, {
+    label: "\uADF8\uB54C \uACFC\uC138\uD45C\uC900 \uD569\uACC4",
+    hint: "\uB0A9\uBD80\uC138\uC561\uACF5\uC81C \uD55C\uB3C4 \uACC4\uC0B0(\uC81C58\uC870 \u2461)"
+  }, React.createElement(MoneyIn, {
+    v: s.priorBase,
+    set: up("priorBase")
+  })), s.priorVal > 0 && React.createElement(CalcField, {
+    label: "\uADF8\uB54C \uC0B0\uCD9C\uC138\uC561 \uD569\uACC4",
+    hint: "\uD560\uC99D \uBE7C\uACE0(\uC81C58\uC870 \u2460 \uAD04\uD638)"
+  }, React.createElement(MoneyIn, {
+    v: s.priorTax,
+    set: up("priorTax")
+  })), s.priorVal > 0 && s.rel === "grand" && React.createElement(CalcField, {
+    label: "\uADF8\uB54C \uD560\uC99D\uC138\uC561 \uD569\uACC4",
+    hint: "\uC774\uBC88 \uD560\uC99D\uC5D0\uC11C \uBE8C(\uC2DC\uD589\uB839 \uC81C46\uC870\uC7583 \u2461)"
+  }, React.createElement(MoneyIn, {
+    v: s.priorSur,
+    set: up("priorSur")
+  })), s.priorVal > 0 && ck("priorExpired", "제척기간 만료로 과세 안 된 이전 증여", "합산은 하되 납부세액공제 없음(제58조 ① 단서)")), React.createElement("div", {
+    style: sub
+  }, "\uACF5\uC81C"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "10\uB144 \uC548 \uC774\uBBF8 \uBC1B\uC740 \uC99D\uC5EC\uC7AC\uC0B0\uACF5\uC81C",
+    hint: "\uC774\uBC88\uC5D0 \uD569\uC0B0\uD558\uC9C0 \uC54A\uB294 \uB2E4\uB978 \uC99D\uC5EC\uC5D0\uC11C \uBC1B\uC740 \uAC83\uB9CC(\uC608: \uC544\uBC84\uC9C0 \u2192 \uC774\uBC88\uC5D4 \uD560\uC544\uBC84\uC9C0). \uD569\uC0B0\uD558\uB294 \uC774\uC804 \uC99D\uC5EC\uC758 \uACF5\uC81C\uB294 \uB123\uC9C0 \uC54A\uC74C"
+  }, React.createElement(MoneyIn, {
+    v: s.usedDed,
+    set: up("usedDed")
+  })), asc && React.createElement(CalcField, {
+    label: "\uD63C\uC778\xB7\uCD9C\uC0B0 \uC99D\uC5EC\uC7AC\uC0B0\uACF5\uC81C",
+    hint: "2024-01-01 \uC774\uD6C4 \uC9C1\uACC4\uC874\uC18D \uC99D\uC5EC \xB7 1\uC5B5 \uC6D0 \uD55C\uB3C4(\uC81C53\uC870\uC7582) \u2014 \uC694\uAC74\uC740 \uC9C1\uC811 \uD655\uC778"
+  }, sel("marry", [["", "해당 없음"], ["marry", "혼인일 전후 2년 안"], ["birth", "자녀 출생·입양일부터 2년 안"]])), asc && s.marry && React.createElement(CalcField, {
+    label: "\uC774\uBBF8 \uBC1B\uC740 \uD63C\uC778\xB7\uCD9C\uC0B0\uACF5\uC81C",
+    hint: "\uC774\uBC88\uC5D0 \uD569\uC0B0\uD558\uC9C0 \uC54A\uB294 \uC99D\uC5EC\uC5D0\uC11C \uBC1B\uC740 \uAC83\uB9CC \u2014 \uD569\uC0B0\uD558\uB294 \uC774\uC804 \uC99D\uC5EC\uC758 \uACF5\uC81C\uB294 \uB123\uC9C0 \uC54A\uC74C"
+  }, React.createElement(MoneyIn, {
+    v: s.usedMarry,
+    set: up("usedMarry")
+  })), React.createElement(CalcField, {
+    label: "\uAC10\uC815\uD3C9\uAC00 \uC218\uC218\uB8CC",
+    hint: "\uAC10\uC815\uD3C9\uAC00\uBC95\uC778 \u2014 500\uB9CC \uC6D0 \uD55C\uB3C4, \uADF8 \uAC10\uC815\uAC00\uB85C \uC2E0\uACE0\uD560 \uB54C\uB9CC(\uC2DC\uD589\uB839 \uC81C20\uC870\uC7583)"
+  }, React.createElement(MoneyIn, {
+    v: s.apprFee,
+    set: up("apprFee")
+  })), React.createElement(CalcField, {
+    label: "\uBE44\uC0C1\uC7A5\uC8FC\uC2DD \uD3C9\uAC00\uC218\uC218\uB8CC",
+    hint: "\uC2E0\uC6A9\uD3C9\uAC00\uAE30\uAD00 \u2014 \uBC95\uC778\xB7\uAE30\uAD00\uBCC4 1\uCC9C\uB9CC \uC6D0 \uD55C\uB3C4"
+  }, React.createElement(MoneyIn, {
+    v: s.stockFee,
+    set: up("stockFee")
+  }))), React.createElement("div", {
+    style: sub
+  }, "\uC138\uC561\uACF5\uC81C"), React.createElement("div", {
+    style: calcGrid
+  }, React.createElement(CalcField, {
+    label: "\uADF8 \uBC16\uC758 \uC138\uC561\uACF5\uC81C\xB7\uAC10\uBA74",
+    hint: "\uC678\uAD6D\uB0A9\uBD80\uC138\uC561\uACF5\uC81C(\uC81C59\uC870) \uB4F1 \u2014 \uC9C1\uC811 \uACC4\uC0B0\uD574 \uC785\uB825"
+  }, React.createElement(MoneyIn, {
+    v: s.otherCredit,
+    set: up("otherCredit")
+  })), ck("late", "신고기한 뒤 신고", "신고세액공제 3% 없음(제69조 ②)")), r.err && box(C.sub, C.soft, r.err), r.warn.map(w => React.createElement(React.Fragment, {
+    key: w
+  }, box("#B45309", "#FFF8E6", w))), !r.err && React.createElement("table", {
+    className: "calc-res",
+    style: {
+      width: "100%",
+      borderCollapse: "collapse",
+      marginTop: 14,
+      fontSize: 13
+    }
+  }, React.createElement("tbody", null, r.rows.filter(x => x.k !== "납부할 증여세").map(x => calcRow(x.k, x.how, money(x.v))), calcRow("납부할 증여세", `10원 미만 버림 · 신고·납부기한 ${r.due}${r.split ? ` · 분납 가능 ${won(r.split)}원(기한 뒤 2개월 안, 제70조 ②)` : ""}`, money(r.pay), {
+    big: true
+  }))), React.createElement(NoteGrid, null, React.createElement(NoteItem, {
+    t: "\uD655\uC778\uD560 \uAC83"
+  }, "\uC7AC\uC0B0 \uD3C9\uAC00(\uC2DC\uAC00\xB7\uC720\uC0AC\uB9E4\uB9E4\uC0AC\uB840\xB7\uBCF4\uCDA9\uC801 \uD3C9\uAC00\xB7\uC800\uB2F9\uAD8C \uD3C9\uAC00\uD2B9\uB840 \u2014 \uC81C60\uC870~\uC81C66\uC870) \xB7 \uD63C\uC778\xB7\uCD9C\uC0B0\uACF5\uC81C \uC694\uAC74\uACFC \uBC18\uD658\xB7\uBBF8\uD63C\uC778 \uC218\uC815\uC2E0\uACE0(\uC81C53\uC870\uC7582 \u2464~\u2466) \xB7 \uC99D\uC5EC\uC790 \uC5F0\uB300\uB0A9\uC138\uC758\uBB34(\uC81C4\uC870\uC7582 \u2465) \xB7 \uC778\uC218\uCC44\uBB34\uB294 \uAD6D\uC138\uCCAD\uC774 \uC0C1\uD658 \uC790\uAE08 \uCD9C\uCC98\uAE4C\uC9C0 \uC0AC\uD6C4\uAD00\uB9AC \xB7 \uC99D\uC5EC\uC138\uB97C \uC99D\uC5EC\uC790\uAC00 \uB300\uC2E0 \uB0B4\uBA74 \uADF8 \uAE08\uC561\uB3C4 \uC99D\uC5EC \xB7 \uB0A9\uBD80\uD560 \uC138\uC561 2\uCC9C\uB9CC \uC6D0 \uCD08\uACFC\uBA74 \uC5F0\uBD80\uC5F0\uB0A9(\uC81C71\uC870)."), React.createElement(NoteItem, {
+    t: "\uACC4\uC0B0 \uAE30\uC900(\uBC95\uB839 \uC6D0\uBB38 \uD655\uC778 2026-11-17)"
+  }, "\uC138\uC728 10~50%(\uC81C26\uC870\xB7\uC81C56\uC870). 10\uB144 \uD569\uC0B0 = \uAC19\uC740 \uC0AC\uB78C(\uC9C1\uACC4\uC874\uC18D\uC740 \uADF8 \uBC30\uC6B0\uC790 \uD3EC\uD568), \uC774\uBC88\uACFC \uD569\uCCD0 1\uCC9C\uB9CC \uC6D0 \uC774\uC0C1. \uC99D\uC5EC\uC7AC\uC0B0\uACF5\uC81C\uB294 10\uB144 \uD1B5\uC0B0 \u2014 \uD569\uC0B0\uD55C \uC804\uCCB4\uC5D0 \uD55C \uBC88. \uD560\uC99D 30%(\uBBF8\uC131\uB144 \xB7 \uC99D\uC5EC\uC7AC\uC0B0\uAC00\uC561 20\uC5B5 \uC6D0 \uCD08\uACFC 40%, 20\uC5B5 \uD310\uB2E8\uC5D0 \uD569\uC0B0\uBD84 \uD3EC\uD568). \uC2E0\uACE0\uC138\uC561\uACF5\uC81C 3%. \uB05D\uC218: \uACFC\uC138\uD45C\uC900 \uC6D0 \uBBF8\uB9CC, \uB0A9\uBD80\uC138\uC561 10\uC6D0 \uBBF8\uB9CC \uBC84\uB9BC. \uC815\uB2F5 \uB300\uC870 = \uAD6D\uC138\uCCAD \u300C2026\uB144 \uC8FC\uD0DD\uACFC \uC138\uAE08\u300D \uC99D\uC5EC\uC138 \uACC4\uC0B0 \uC0AC\uB840. \uC138\uC728\xB7\uACF5\uC81C \uAE08\uC561\uC740 \uAC1C\uC815\uB420 \uC218 \uC788\uC2B5\uB2C8\uB2E4."), React.createElement(NoteItem, {
+    t: "\uBC18\uC601\uD558\uC9C0 \uC54A\uC740 \uAC83"
+  }, "\uC7AC\uC0B0 \uD3C9\uAC00 \xB7 \uD569\uC0B0\uBC30\uC81C\uC99D\uC5EC\uC7AC\uC0B0(\uBA85\uC758\uC2E0\uD0C1\xB7\uD2B9\uC218\uAD00\uACC4\uBC95\uC778 \uC774\uC775 \uB4F1) \xB7 \uC99D\uC5EC\uC758\uC81C\xB7\uCD94\uC815 \uC774\uC775 \uACC4\uC0B0 \xB7 \uCC3D\uC5C5\uC790\uAE08\xB7\uAC00\uC5C5\uC2B9\uACC4 \uACFC\uC138\uD2B9\uB840 \xB7 \uC601\uB18D\uC790\uB140 \uAC10\uBA74 \uC694\uAC74 \xB7 \uC678\uAD6D\uB0A9\uBD80\uC138\uC561\uACF5\uC81C \uC790\uB3D9 \uACC4\uC0B0 \xB7 \uBD80\uB2F4\uBD80\uC99D\uC5EC\uC758 \uC99D\uC5EC\uC790 \uC591\uB3C4\uC18C\uB4DD\uC138(\uC591\uB3C4\uC138 \uD0ED) \xB7 \uAC00\uC0B0\uC138(\uAC00\uC0B0\uC138 \uD0ED).")));
+}
 function CalcPage() {
   const [saved, setTab] = useMem("calc.tab", "pen");
   const tab = saved === "ins" ? "pay" : saved;
@@ -5698,13 +6054,13 @@ function CalcPage() {
       flexWrap: "wrap",
       marginBottom: 14
     }
-  }, [["pen", "가산세"], ["pay", "급여·4대보험"], ["ret", "퇴직금"], ["ih", "상속세"], ["yd", "양도세"], ["ye", "연말정산"], ["hi", "건강보험료 정산"]].map(([k, t]) => React.createElement(Pill, {
+  }, [["pen", "가산세"], ["pay", "급여·4대보험"], ["ret", "퇴직금"], ["ih", "상속세"], ["gf", "증여세"], ["yd", "양도세"], ["ye", "연말정산"], ["hi", "건강보험료 정산"]].map(([k, t]) => React.createElement(Pill, {
     key: k,
     label: t,
     active: tab === k,
     onClick: () => setTab(k),
     color: C.accent
-  }))), tab === "pen" && React.createElement(PenaltyCalc, null), tab === "pay" && React.createElement(PayTab, null), tab === "ret" && React.createElement(RetireCalc, null), tab === "ih" && React.createElement(InheritCalc, null), tab === "yd" && React.createElement(YangdoCalc, null), tab === "ye" && React.createElement(YearEndCalc, null), tab === "hi" && React.createElement(HiSettleCalc, null), React.createElement("div", {
+  }))), tab === "pen" && React.createElement(PenaltyCalc, null), tab === "pay" && React.createElement(PayTab, null), tab === "ret" && React.createElement(RetireCalc, null), tab === "ih" && React.createElement(InheritCalc, null), tab === "gf" && React.createElement(GiftCalc, null), tab === "yd" && React.createElement(YangdoCalc, null), tab === "ye" && React.createElement(YearEndCalc, null), tab === "hi" && React.createElement(HiSettleCalc, null), React.createElement("div", {
     style: {
       fontSize: 12,
       color: C.sub,
