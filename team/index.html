@@ -1632,9 +1632,10 @@ const TITLE_LIST = ['대표', '세무사', '회계사', '실장', '팀장', '과
 let memEdit = null;
 function openMemEdit(m, admin){
   const mailOk = !admin || M.myRole === 'admin'; // 대표 계정의 구글 계정은 대표만(서버 setMemberEmail 과 같음)
-  memEdit = { m, admin, mailOk };
+  const nameOk = !admin || M.myRole === 'admin'; // 대표 이름은 대표 본인만 바꿈(2026-11-17 대표님 요청, 서버 renameMember 와 같음)
+  memEdit = { m, admin, mailOk, nameOk };
   $('#memDlgTitle').textContent = m.name + ' 정보';
-  $('#mdNameF').hidden = $('#mdNameHint').hidden = admin; $('#mdName').value = m.name;
+  $('#mdNameF').hidden = $('#mdNameHint').hidden = !nameOk; $('#mdName').value = m.name;
   $('#mdTitle').innerHTML = Array.from(new Set(['', ...TITLE_LIST, m.title || ''])).map(x => '<option value="' + esc(x) + '"' + (x === (m.title || '') ? ' selected' : '') + '>' + esc(x || '직급 선택') + '</option>').join('');
   $('#mdTeamF').hidden = !Array.isArray(M.teams); // 조직도(2026-11-08, PC 팀원 관리와 같은 팀 목록)
   $('#mdTeam').innerHTML = ['', ...(M.teams || [])].map(x => '<option value="' + esc(x) + '"' + (x === (m.team || '') ? ' selected' : '') + '>' + esc(x || '미배정') + '</option>').join('');
@@ -1649,8 +1650,8 @@ function openMemEdit(m, admin){
 $('#memForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (!memEdit) return;
-  const { m, admin, mailOk } = memEdit;
-  const title = $('#mdTitle').value, mail = $('#mdMail').value.trim().toLowerCase(), nn = admin ? m.name : $('#mdName').value.trim();
+  const { m, admin, mailOk, nameOk } = memEdit;
+  const title = $('#mdTitle').value, mail = $('#mdMail').value.trim().toLowerCase(), nn = nameOk ? $('#mdName').value.trim() : m.name;
   if (!nn) { toast('이름을 입력하세요'); return; }
   const steps = []; // 직급·계정을 옛 이름으로 먼저, 이름 변경은 맨 끝
   if (title !== (m.title || '')) steps.push(['setTitle', m.name, title]);
@@ -2217,7 +2218,7 @@ function initMock(){
     setTitle: (n, t) => { if (t) titles[n] = t; else delete titles[n]; return memList(); },
     setTeam: (n, t) => { if (t) teamOf[n] = t; else delete teamOf[n]; return memList(); },
     setMemberEmail: (n, e) => { Object.keys(mails).forEach(k => { if (mails[k] === e) delete mails[k]; }); if (e) mails[n] = e; else delete mails[n]; return memList(); },
-    renameMember: (o, n) => { if (mem[n] || n === MEMBERS[0]) throw new Error('이미 있는 이름입니다.'); const k = {}; Object.keys(mem).forEach(x => { k[x === o ? n : x] = mem[x]; }); Object.keys(mem).forEach(x => delete mem[x]); Object.assign(mem, k); [roles, titles, mails].forEach(m => { if (o in m) { m[n] = m[o]; delete m[o]; } }); return syncMembers(); },
+    renameMember: (o, n) => { if (mem[n] || n === MEMBERS[0]) throw new Error('이미 있는 이름입니다.'); const k = {}; Object.keys(mem).forEach(x => { k[x === o ? n : x] = mem[x]; }); Object.keys(mem).forEach(x => delete mem[x]); Object.assign(mem, k); if (o === MEMBERS[0]) MEMBERS[0] = n; [roles, titles, mails].forEach(m => { if (o in m) { m[n] = m[o]; delete m[o]; } }); return syncMembers(); },
     getAccessLog: () => [{ t: Date.now() - 3600000, name: MEMBERS[1], role: 'team', via: '휴대폰', what: '코드 로그인' }, { t: Date.now() - 86400000, name: MEMBERS[0], role: 'admin', via: '웹판 구글', what: '구글 자동 로그인' }],
     setPin: () => 'demo-token',
     getTasks: () => ({ members: MEMBERS, tasks: db.tasks, lists: [{ id:'L1', title:'팀 공유', team:true }, { id:'L2', title:'내 할 일', team:false }] }),
