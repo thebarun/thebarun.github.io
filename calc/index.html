@@ -1772,6 +1772,8 @@ const TAXCALC = {
     const inGrace = s.saleDate >= Q.grace[0] && s.saleDate <= Q.grace[1] && rtY >= 2,
       heavyCase = house && !unreg && !!s.adjusted && houses >= 2 && !s.heavyEx;
     const heavy = heavyCase && !inGrace ? houses >= 3 ? 30 : 20 : 0;
+    if (house && houses >= 2 && !s.adjusted) warn.push(`1세대 ${houses >= 3 ? "3주택 이상" : "2주택"}이지만 조정대상지역 주택이 아니라 중과 없이 계산했습니다(제104조 ⑦).`);
+    if (house && houses >= 2 && (s.exempt || s.oneHouse)) warn.push("1세대 2주택 이상인데 비과세 또는 '양도일 현재 1세대1주택'을 체크했습니다 — 일시적 2주택·상속주택 등 1세대1주택 특례(시행령 제155조) 요건을 확인하세요.");
     if (heavyCase && inGrace) warn.push(`중과 한시 배제 — ${Q.grace[0]} ~ ${Q.grace[1]} 양도·보유 2년 이상이라 기본세율로 계산했습니다(시행령 제167조의10 ① 12의2).`);
     if (s.cause === "gift") warn.push("배우자·직계존비속에게 증여받아 10년 안에 양도하면 이월과세(제97조의2)로 취득가액·보유기간이 달라질 수 있습니다 — 이 계산은 반영하지 않았습니다.");
     if (kind === "ticket") warn.push("조합원입주권 장기보유특별공제는 관리처분계획인가 전 양도차익에만 적용됩니다 — 이 계산은 입력한 양도차익 전체에 적용했습니다.");
@@ -1855,6 +1857,12 @@ const TAXCALC = {
       total: natPay + local + nong,
       due
     };
+  },
+  sjTax(base) {
+    const T = [[1e8, 10, 0], [5e8, 20, 1e7], [1e9, 30, 6e7], [3e9, 40, 16e7], [Infinity, 50, 46e7]];
+    const b = Math.max(0, Math.floor(base + 1e-6)),
+      r = T.find(x => b <= x[0]);
+    return Math.max(0, Math.floor(b * r[1] / 100 - r[2] + 1e-6));
   }
 };
 function CalcField({
@@ -5074,9 +5082,10 @@ function YangdoCalc() {
   }, ck("exempt", "1세대1주택 비과세 요건 충족", "보유 2년(조정지역 취득은 거주 2년) 등 — 제89조 ① 3호·시행령 제154조"), ck("oneHouse", "양도일 현재 1세대1주택", "장특공 표 2(최대 80%) — 거주 2년 이상일 때(시행령 제159조의4)"), React.createElement(CalcField, {
     label: "\uAC70\uC8FC\uAE30\uAC04(\uB144)",
     hint: "\uBCF4\uC720\uAE30\uAC04 \uC911 \uC2E4\uC81C \uAC70\uC8FC"
-  }, numIn("resideY")), ck("adjusted", "조정대상지역 주택"), s.adjusted && React.createElement(CalcField, {
-    label: "1\uC138\uB300 \uC8FC\uD0DD \uC218(\uC785\uC8FC\uAD8C\xB7\uBD84\uC591\uAD8C \uD3EC\uD568)"
-  }, sel("houses", [["1", "1주택"], ["2", "2주택"], ["3", "3주택 이상"]])), s.adjusted && +s.houses >= 2 && ck("heavyEx", "중과 제외 주택", "시행령 제167조의3·제167조의10 제외 사유"))), React.createElement("div", {
+  }, numIn("resideY")), React.createElement(CalcField, {
+    label: "1\uC138\uB300 \uC8FC\uD0DD \uC218(\uC785\uC8FC\uAD8C\xB7\uBD84\uC591\uAD8C \uD3EC\uD568)",
+    hint: "\uC911\uACFC\uB294 \uC870\uC815\uB300\uC0C1\uC9C0\uC5ED \uC8FC\uD0DD\uB9CC(\uC81C104\uC870 \u2466)"
+  }, sel("houses", [["1", "1세대 1주택"], ["2", "1세대 2주택"], ["3", "1세대 3주택 이상"]])), ck("adjusted", "조정대상지역 주택"), s.adjusted && +s.houses >= 2 && ck("heavyEx", "중과 제외 주택", "시행령 제167조의3·제167조의10 제외 사유"))), React.createElement("div", {
     style: sub
   }, "\uAC10\uBA74 \xB7 \uACF5\uC81C"), React.createElement("div", {
     style: calcGrid
