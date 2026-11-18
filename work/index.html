@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-lRdoCdtCUbUTTki2PyALSwi16Y6IJXR7bWnn+Ww12Q0='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-pjythkTkPiAHkJ7ivQZJf8u91sAqa2xGFQQEKGMyWC0='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -556,7 +556,7 @@ function renderOwner() {
     var rows = days.map(function (d) {
       var x = v.days.filter(function (r) { return r.emp === sel.id && r.date === d; })[0] || {};
       var ed = S.edit && S.edit.date === d;
-      var by = x.inBy || x.outBy ? "출근 " + (x.inBy || "-") + " · 퇴근 " + (x.outBy || "-") + (x.fixed ? " · 고침" : "") : "";
+      var by = x.inBy || x.outBy ? ["출근 " + (x.inBy || "-"), "퇴근 " + (x.outBy || "-")].concat(x.fixed ? ["고침"] : []) : null;
       if (ed) {
         var tin = el("input", { type: "time", "aria-label": dayLabel(d) + " 출근", value: S.edit.in, oninput: function () { S.edit.in = this.value; } });
         var tout = el("input", { type: "time", "aria-label": dayLabel(d) + " 퇴근", value: S.edit.out, oninput: function () { S.edit.out = this.value; } });
@@ -573,7 +573,9 @@ function renderOwner() {
           el("button", { type: "button", class: "btn sm", onclick: function () { S.edit = null; render(); }, text: "취소" })]),
           el("div", { class: "note", text: "퇴근이 출근보다 이르면 다음 날 퇴근. 두 칸을 비우고 저장하면 그 날 기록을 비웁니다(고친 기록은 남음)." })])]);
       }
-      return el("tr", {}, [el("td", {}, [dayLabel(d), by ? el("div", { class: "sub", style: "font-size:11.5px", text: by }) : null]), el("td", { class: "num", text: hm(x.in) + " ~ " + hm(x.out) }),
+      var none = !x.in && !x.out;
+      return el("tr", { "data-day": d }, [el("td", {}, [dayLabel(d), by ? el("div", { class: "sub", style: "font-size:11.5px" }, by.reduce(function (a, t, k) { return a.concat(k ? [" · "] : [], [el("span", { class: "nw", text: t })]); }, [])) : null]),
+        el("td", { class: "r num" + (none ? " sub" : ""), text: none ? "기록 없음" : hm(x.in) + " ~ " + hm(x.out) }),
         el("td", { class: "r" }, [el("button", { type: "button", class: "link", "aria-label": dayLabel(d) + " 고치기", onclick: function () { S.edit = { date: d, in: hm(x.in) === "-" ? "" : hm(x.in), out: hm(x.out) === "-" ? "" : hm(x.out) }; render(); }, text: "고치기" })])]);
     });
     app.appendChild(el("div", { class: "card" }, [
