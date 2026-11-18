@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-VJArNDXUZd1r4bK2lfbnYW9bkArh+wmrHgkMLIT9NHY='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-UimSOGOM0V6boUFIZObWLYQzginGveltbO4QLUyFuMs='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -38,6 +38,10 @@ td.r,td.num{white-space:nowrap}
 .emp{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--hair)}
 .emp:first-of-type{border-top:0}
 .emp .acts{display:flex;gap:6px}
+.emp b{display:block;font-size:16px}.emp .sub{margin-top:2px;line-height:1.45}.nw{white-space:nowrap}
+.emp .btn.sm{min-width:48px}
+.form.addrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}.form.addrow input{width:100%;min-width:0}
+.note.gone{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px}
 .sheet-bg{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;background:rgba(22,33,43,.38)}
 .sheet{width:100%;max-width:520px;max-height:90vh;overflow-y:auto;background:var(--paper);border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(22,50,68,.18);padding:8px 16px 20px}
 .sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--hair);margin:4px auto 12px}
@@ -495,7 +499,8 @@ function renderOwner() {
       S.err = ""; enqueue("cwOwnerPunch", [e.id, kind, nowMs()], e.name + " " + (kind === "in" ? "출근" : "퇴근")); render();
     }
     return el("div", { class: "emp", "data-emp": e.id }, [
-      el("div", {}, [el("b", { text: e.name }), el("div", { class: "sub num", text: "시급 " + won(e.wage) + "원 · 출근 " + st.inTxt + " · 퇴근 " + st.outTxt + (pend.length ? " · 저장하는 중…" : "") })]),
+      el("div", {}, [el("b", { text: e.name }), el("div", { class: "sub num", text: "시급 " + won(e.wage) + "원" }),
+        el("div", { class: "sub num" }, [el("span", { class: "nw", text: "출근 " + st.inTxt }), " · ", el("span", { class: "nw", text: "퇴근 " + st.outTxt })].concat(pend.length ? [" · ", el("span", { class: "nw", text: "저장하는 중…" })] : []))]),
       el("div", { class: "acts" }, [
         el("button", { type: "button", class: "btn sm", disabled: !st.canIn || old, onclick: function () { punch("in"); }, text: "출근" }),
         el("button", { type: "button", class: "btn sm", disabled: !st.canOut || old, onclick: function () { punch("out"); }, text: "퇴근" }),
@@ -512,10 +517,10 @@ function renderOwner() {
     el("h2", { style: "margin-top:16px", text: "오늘 출퇴근 (직원 대신 누르기)" }),
     el("div", {}, empRows.length ? empRows : [el("div", { class: "sub", text: "아래에서 직원을 추가해 주세요." })]),
     el("h2", { style: "margin-top:16px", text: "+ 직원 추가" }),
-    el("div", { class: "form" }, [nameIn, wageIn, el("button", { type: "button", class: "btn main", disabled: S.busy, onclick: function () {
+    el("div", { class: "form addrow" }, [nameIn, wageIn, el("button", { type: "button", class: "btn main", disabled: S.busy, onclick: function () {
       ownerSave({ op: "add", name: S.add.name, wage: S.add.wage || 0 }, S.add.name + " 님을 추가했습니다. ⋯ 메뉴의 [카톡 문구 복사]로 링크를 보내 주세요.").then(function (ok) { if (ok) { S.add = { name: "", wage: "" }; render(); } });
     }, text: "추가" })]),
-    gone.length ? el("div", { class: "note" }, ["퇴사: "].concat(gone.map(function (e) { return el("button", { type: "button", class: "link", onclick: function () { if (confirm(e.name + " 다시 재직으로 돌릴까요?")) ownerSave({ op: "back", id: e.id }, e.name + " 재직으로 돌렸습니다."); }, text: e.name + " (복직)" }); }))) : null,
+    gone.length ? el("div", { class: "note gone" }, ["퇴사:"].concat(gone.map(function (e) { return el("button", { type: "button", class: "link", onclick: function () { if (confirm(e.name + " 다시 재직으로 돌릴까요?")) ownerSave({ op: "back", id: e.id }, e.name + " 재직으로 돌렸습니다."); }, text: e.name + " (복직)" }); }))) : null,
     S.msg ? el("div", { class: "ok", text: S.msg }) : null,
     S.err ? el("div", { class: "alert", role: "alert", text: S.err }) : null,
     saveLine(),
