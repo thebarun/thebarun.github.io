@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-QdZsNzpSyFcZs2q4/W23XLoTx0BT2KE2nwys8fwA92A='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-zg2+aN7ip9T8XnTS9wovKHYvx3l1kp92o+8UksIQBL8='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -117,6 +117,7 @@ const HOLIDAYS = {
   "2027-09-15": "추석", "2027-09-16": "추석 연휴", "2027-10-03": "개천절", "2027-10-04": "대체공휴일(개천절)", "2027-10-09": "한글날",
   "2027-10-11": "대체공휴일(한글날)", "2027-12-25": "성탄절", "2027-12-27": "대체공휴일(성탄절)",
 };
+const TAXCALC_MINWAGE = { 2025: 10030, 2026: 10320, 2027: 10700 };
 const attSec = (s) => { const m = /^(\d\d):(\d\d)(?::(\d\d))?$/.exec(s || ""); return m ? +m[1] * 3600 + +m[2] * 60 + +(m[3] || 0) : null; };
 const attIso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 const attAdd = (iso, n) => attIso(new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + n));
@@ -435,9 +436,11 @@ function renderOwner() {
   /* 월 기록·참고 급여 */
   var y = +S.ym.slice(0, 4), m = +S.ym.slice(5, 7);
   function moveYm(n) { var d = new Date(y, m - 1 + n, 1); S.ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); S.edit = null; load(); }
+  var mw = TAXCALC_MINWAGE[y], low = false; /* 그 해 시간급 최저임금(고용노동부 고시) — 대시보드 계산기와 같은 표 */
   var pay = live.concat(gone).map(function (e) {
+    if (mw && e.wage && e.wage < mw) low = true;
     var r = attendCalc(v.days.filter(function (d) { return d.emp === e.id; }), S.ym, e.wage, v.five, v.brk, HOLIDAYS, today);
-    return el("tr", {}, [el("td", { text: e.name + (r.missing ? " · 퇴근 빠짐 " + r.missing + "일" : "") }), el("td", { class: "r num", text: won(e.wage) }), el("td", { class: "r num", text: attH2(r.work) + "시간" }), el("td", { class: "r num", text: won(r.total) + "원" })]);
+    return el("tr", {}, [el("td", { text: e.name + (r.missing ? " · 퇴근 빠짐 " + r.missing + "일" : "") }), el("td", { class: "r num", style: mw && e.wage && e.wage < mw ? "color:var(--warn);font-weight:600" : null, text: won(e.wage) }), el("td", { class: "r num", text: attH2(r.work) + "시간" }), el("td", { class: "r num", text: won(r.total) + "원" })]);
   });
   app.appendChild(el("div", { class: "card" }, [
     el("div", { class: "ym" }, [el("button", { type: "button", class: "btn sm", "aria-label": "이전 달", onclick: function () { moveYm(-1); }, text: "‹" }), el("h2", { style: "margin:0", text: y + "년 " + m + "월" }), el("button", { type: "button", class: "btn sm", "aria-label": "다음 달", onclick: function () { moveYm(1); }, text: "›" })]),
@@ -446,6 +449,8 @@ function renderOwner() {
       el("label", { class: "chk" }, [el("input", { type: "checkbox", checked: v.brk, disabled: S.busy, onchange: function () { ownerSave({ op: "cfg", five: v.five, brk: this.checked }, "설정을 바꿨습니다."); } }), "휴게시간 빼기"])
     ]),
     el("table", {}, [el("thead", {}, [el("tr", {}, [el("th", { text: "직원" }), el("th", { class: "r", text: "시급(원)" }), el("th", { class: "r", text: "근무시간" }), el("th", { class: "r", text: "참고 급여(세전)" })])]), el("tbody", {}, pay)]),
+    el("div", { class: "minw num", "data-minwage": "", style: "margin-top:12px;font-size:13.5px" }, [y + "년 최저시급 ", el("b", { text: mw ? won(mw) + "원" : "자료 없음" }), mw ? " (고용노동부 고시)" : ""]),
+    low ? el("div", { class: "alert", text: "빨간 시급은 " + y + "년 최저시급보다 낮습니다. 수습 등 예외가 아니면 시급을 고쳐 주세요." }) : null,
     el("div", { class: "note", text: "참고 계산입니다. 개근·소정근로시간 자료가 없어 주휴수당은 15시간 기준으로만 계산합니다." })
   ]));
   /* 날짜별 기록 고치기 */
