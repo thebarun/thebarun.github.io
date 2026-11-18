@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Eq5iPRD0iidMool5XGFIVp/YZyH/724c+6qq1+H9D3g='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-VJArNDXUZd1r4bK2lfbnYW9bkArh+wmrHgkMLIT9NHY='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -252,9 +252,10 @@ function flush() {
   var it = qLoad()[0]; /* 누른 순서대로 하나씩 — 앞 출근이 기다리는 동안 뒤 퇴근이 먼저 가면 '출근 기록이 없습니다'로 거절돼 사라짐 */
   if (!it || it.next > Date.now()) return schedule();
   flushing = true;
-  post(it.fn, [it.tok].concat(it.args, [it.op])).then(function (data) {
+  var t0 = Date.now();
+  post(it.fn, [it.tok].concat(it.args, [it.op, 1])).then(function (data) {
     qSave(qLoad().filter(function (x) { return x.op !== it.op; }));
-    if (it.tok === S.tok && data) take(data, true);
+    if (it.tok === S.tok && data) { S.saved = { at: data.saved || 0, sec: (Date.now() - t0) / 1000 }; merge(it, data); }
   }, function (e) {
     var q = qLoad(), x = q.filter(function (y) { return y.op === it.op; })[0];
     if (!x) return;
@@ -265,6 +266,42 @@ function flush() {
     } else { x.n++; x.next = Date.now() + (x.n <= DELAYS.length ? DELAYS[x.n - 1] : 120) * 1000 * (1 + Math.random() * 0.5); qSave(q); }
   }).then(function () { flushing = false; render(); flush(); });
 }
+/* 서버가 돌려준 가벼운 답(lite)으로 그 직원 어제·오늘만 고침 — 옛 서버면 전체 화면 모양이 와서 예전처럼 통째로 */
+function upsertDay(days, emp, r) {
+  var i = -1;
+  days.forEach(function (x, k) { if (x.date === r.date && (!emp || x.emp === emp)) i = k; });
+  var row = emp ? { emp: emp, date: r.date, in: r.in, out: r.out, inBy: r.inBy || "", outBy: r.outBy || "", fixed: !!r.fixed } : { date: r.date, in: r.in, out: r.out };
+  if (!r.in && !r.out) { if (i >= 0) days.splice(i, 1); } else if (i >= 0) days[i] = row; else days.push(row);
+}
+function merge(it, d) {
+  if (d.name && (d.emps || d.emp)) return take(d, true);
+  if (d.now) S.skew = d.now - Date.now();
+  if (!S.v || !d.recent) return;
+  var emp = it.fn === "cwOwnerPunch" ? it.args[0] : "";
+  if (emp) S.v.recent = (S.v.recent || []).filter(function (r) { return r.emp !== emp; }).concat(d.recent);
+  else S.v.recent = d.recent;
+  S.v.days = S.v.days || [];
+  var mon = emp ? "" : String(S.v.today || d.today || "").slice(0, 7); /* 직원 화면 표는 이번 달만 — 지난달 마지막 날 근무는 넣지 않음 */
+  d.recent.forEach(function (r) { if (!mon || r.date.slice(0, 7) === mon) upsertDay(S.v.days, emp, r); });
+}
+/* 저장 상태 한 줄: 저장 중 / 저장 안 됨 — 다시 보내는 중 / 저장됨 HH:MM:SS(서버가 받은 시각) · 걸린 초 */
+function saveLine() {
+  var q = qLoad().filter(function (x) { return x.tok === S.tok; });
+  if (q.length) {
+    var bad = q.some(function (x) { return x.n > 0; });
+    return el("div", { class: bad ? "alert" : "note", role: "status", "data-save": bad ? "retry" : "saving", text: bad ? "저장 안 됨 — 다시 보내는 중 (" + q.length + "건). 이 휴대폰에 붙잡아 두었고 인터넷이 돌아오면 이어서 보냅니다." : "저장 중… (" + q.length + "건)" });
+  }
+  if (S.saved) return el("div", { class: "ok", role: "status", "data-save": "saved", text: S.saved.at ? "저장됨 " + cwKst(S.saved.at).hms + " (서버가 받은 시각) · " + S.saved.sec.toFixed(1) + "초" : "저장됨 (이미 저장돼 있던 기록)" });
+  return null;
+}
+/* 저장 확인 전 창을 닫거나 새로 고치면 브라우저 경고. 화면을 떠날 때 남은 것을 keepalive 로 한 번 더(같은 opId 라 두 번 저장 안 됨) */
+window.addEventListener("beforeunload", function (ev) { if (qLoad().length) { ev.preventDefault(); ev.returnValue = "저장 중"; return "저장 중"; } });
+function beacon() { /* 맨 앞 1건만 — 여러 건을 한꺼번에 보내면 도착 순서가 바뀔 수 있음(나머지는 대기열에 남아 다시 열 때 차례대로) */
+  qLoad().slice(0, 1).forEach(function (it) {
+    try { fetch(API, { method: "POST", credentials: "omit", keepalive: true, body: JSON.stringify({ fn: it.fn, cred: "", args: [it.tok].concat(it.args, [it.op, 1]) }) }).catch(function () {}); } catch (e) { /* 보내지 못해도 대기열에 남아 다시 열 때 보냄 */ }
+  });
+}
+window.addEventListener("pagehide", beacon);
 window.addEventListener("online", function () { var q = qLoad(); q.forEach(function (x) { x.next = 0; }); qSave(q); flush(); });
 
 /* ---- 받기 ---- */
@@ -272,19 +309,30 @@ function take(d, fromPunch) {
   if (!d) return;
   S.skew = d.now - Date.now();
   if (S.err === LOAD_ERR) S.err = "";
+  if (d.same) { S.stale = false; return render(); } /* 서버 자료가 그대로 */
   if (S.mode === "o" && fromPunch && S.v && d.ym !== S.ym) S.v.recent = d.recent; /* 다른 달을 보는 중이면 오늘 상태만 */
-  else S.v = d;
+  else { S.v = d; S.rev = d.rev || ""; S.stale = false; keepView(d); }
   if (S.mode === "o" && !S.ym) S.ym = d.ym;
   render();
 }
+/* 먼저 그리기: 마지막으로 받은 화면을 이 휴대폰에 두고, 다시 열면 그것부터 그린 뒤 새로 받음 */
+function keepView(d) {
+  try {
+    var c = JSON.parse(JSON.stringify(d));
+    if (c.emps) c.emps.forEach(function (e) { if (e.rrn) e.rrn = "등록됨"; }); /* 가린 번호도 휴대폰 저장소엔 안 남김 */
+    ls("cw.v." + S.tok, JSON.stringify(c));
+  } catch (e) { /* 저장 공간이 없어도 화면은 그대로 */ }
+}
+function keptView(tok) { try { return JSON.parse(ls("cw.v." + tok) || "null"); } catch (e) { return null; } }
 var loadSeq = 0;
 function load() {
   var n = ++loadSeq, mode = S.mode, tok = S.tok;
-  var p = mode === "e" ? post("cwEmp", [tok]) : post("cwOwner", [tok, S.ym]);
+  var p = mode === "e" ? post("cwEmp", [tok, S.rev || ""]) : post("cwOwner", [tok, S.ym, S.rev || ""]);
   p.then(function (d) { if (n === loadSeq) take(d); }, function (e) {
     if (n !== loadSeq) return;
     if (e.server && /링크가 바뀌었거나|퇴사 처리된/.test(e.message)) {
       if (ls(mode === "o" ? K_O : K_E) === tok) ls(mode === "o" ? K_O : K_E, null); /* 끊긴 열쇠는 이 휴대폰에서도 지움 */
+      ls("cw.v." + tok, null);
       return say(/퇴사/.test(e.message) ? "퇴사 처리된 링크입니다" : "링크를 확인해 주세요", e.message);
     }
     if (!S.v) return say("불러오지 못했습니다", "인터넷 연결을 확인하고 잠시 뒤 다시 열어 주세요. (" + (e.server ? e.message : "연결 실패") + ")");
@@ -317,7 +365,7 @@ function stateOf(recent, pend, ms) {
 /* ---- 직원 화면 ---- */
 function renderEmp() {
   var v = S.v, ms = nowMs(), pend = pendingOf("cwPunch", S.tok).map(function (x) { return { kind: x.args[0], at: x.args[1] }; });
-  var st = stateOf(v.recent || [], pend, ms), k = cwKst(ms);
+  var st = stateOf(v.recent || [], pend, ms), k = cwKst(ms), old = S.stale && v.today !== k.date; /* 어제 저장본으로 그린 동안은 누르기 막음 */
   function punch(kind) {
     if (kind === "out" && !confirm("퇴근할까요?")) return;
     S.err = ""; enqueue("cwPunch", [kind, nowMs()], kind === "in" ? "출근" : "퇴근"); render();
@@ -333,11 +381,12 @@ function renderEmp() {
     el("div", { class: "sub num", id: "clockD", text: "" }),
     el("div", { class: "clock num", id: "clockT", text: "" }),
     el("div", { class: "row2" }, [
-      el("button", { type: "button", class: "pbtn in", disabled: !st.canIn, onclick: function () { punch("in"); }, text: st.inDone ? "출근 완료" : "출근하기" }),
-      el("button", { type: "button", class: "pbtn out", disabled: !st.canOut, onclick: function () { punch("out"); }, text: st.outDone && !st.canOut ? "퇴근 완료" : "퇴근하기" })
+      el("button", { type: "button", class: "pbtn in", disabled: !st.canIn || old, onclick: function () { punch("in"); }, text: st.inDone ? "출근 완료" : "출근하기" }),
+      el("button", { type: "button", class: "pbtn out", disabled: !st.canOut || old, onclick: function () { punch("out"); }, text: st.outDone && !st.canOut ? "퇴근 완료" : "퇴근하기" })
     ]),
     el("div", { class: "sub num", style: "margin-top:10px;text-align:center" , text: "오늘  출근 " + st.inTxt + " · 퇴근 " + st.outTxt }),
-    pend.length ? el("div", { class: "note", text: "저장하는 중… 누른 시각은 이 휴대폰에 붙잡아 두었고, 연결이 끊겨도 저장될 때까지 다시 보냅니다." }) : null,
+    saveLine(),
+    S.stale ? el("div", { class: "note", text: "지난번 화면입니다 — 서버에서 새로 확인하는 중…" }) : null,
     S.err ? el("div", { class: "alert", role: "alert", text: S.err }) : null
   ]));
   app.appendChild(el("div", { class: "card" }, [
@@ -433,7 +482,7 @@ function empSheet(e) {
 }
 document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && S.menu) closeSheet(); });
 function renderOwner() {
-  var v = S.v, ms = nowMs(), today = cwKst(ms).date;
+  var v = S.v, ms = nowMs(), today = cwKst(ms).date, old = S.stale && v.today !== today; /* 어제 저장본으로 그린 동안은 대신 누르기 막음 */
   var live = v.emps.filter(function (e) { return e.state === "재직"; }), gone = v.emps.filter(function (e) { return e.state !== "재직"; });
   var pendAll = pendingOf("cwOwnerPunch", S.tok);
   app.textContent = "";
@@ -448,8 +497,8 @@ function renderOwner() {
     return el("div", { class: "emp", "data-emp": e.id }, [
       el("div", {}, [el("b", { text: e.name }), el("div", { class: "sub num", text: "시급 " + won(e.wage) + "원 · 출근 " + st.inTxt + " · 퇴근 " + st.outTxt + (pend.length ? " · 저장하는 중…" : "") })]),
       el("div", { class: "acts" }, [
-        el("button", { type: "button", class: "btn sm", disabled: !st.canIn, onclick: function () { punch("in"); }, text: "출근" }),
-        el("button", { type: "button", class: "btn sm", disabled: !st.canOut, onclick: function () { punch("out"); }, text: "퇴근" }),
+        el("button", { type: "button", class: "btn sm", disabled: !st.canIn || old, onclick: function () { punch("in"); }, text: "출근" }),
+        el("button", { type: "button", class: "btn sm", disabled: !st.canOut || old, onclick: function () { punch("out"); }, text: "퇴근" }),
         el("button", { type: "button", class: "btn sm", "aria-haspopup": "dialog", "aria-label": e.name + " 메뉴", onclick: function () { S.menu = e.id; S.wedit = null; S.redit = null; S.nedit = null; render(); }, text: "⋯" })
       ])
     ]);
@@ -469,11 +518,12 @@ function renderOwner() {
     gone.length ? el("div", { class: "note" }, ["퇴사: "].concat(gone.map(function (e) { return el("button", { type: "button", class: "link", onclick: function () { if (confirm(e.name + " 다시 재직으로 돌릴까요?")) ownerSave({ op: "back", id: e.id }, e.name + " 재직으로 돌렸습니다."); }, text: e.name + " (복직)" }); }))) : null,
     S.msg ? el("div", { class: "ok", text: S.msg }) : null,
     S.err ? el("div", { class: "alert", role: "alert", text: S.err }) : null,
-    pendAll.length ? el("div", { class: "note", text: "저장하는 중… 연결이 끊겨도 저장될 때까지 다시 보냅니다." }) : null
+    saveLine(),
+    S.stale ? el("div", { class: "note", text: "지난번 화면입니다 — 서버에서 새로 확인하는 중…" }) : null
   ]));
   /* 월 기록·참고 급여 */
   var y = +S.ym.slice(0, 4), m = +S.ym.slice(5, 7);
-  function moveYm(n) { var d = new Date(y, m - 1 + n, 1); S.ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); S.edit = null; load(); }
+  function moveYm(n) { var d = new Date(y, m - 1 + n, 1); S.ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); S.edit = null; S.rev = ""; load(); }
   var mw = TAXCALC_MINWAGE[y], low = false; /* 그 해 시간급 최저임금(고용노동부 고시) — 대시보드 계산기와 같은 표 */
   var pay = live.concat(gone).map(function (e) {
     if (mw && e.wage && e.wage < mw) low = true;
@@ -504,8 +554,13 @@ function renderOwner() {
         var tout = el("input", { type: "time", "aria-label": dayLabel(d) + " 퇴근", value: S.edit.out, oninput: function () { S.edit.out = this.value; } });
         return el("tr", {}, [el("td", { colspan: "3" }, [el("div", { style: "font-weight:600;margin-bottom:6px", text: dayLabel(d) }), el("div", { class: "edit" }, [tin, "~", tout,
           el("button", { type: "button", class: "btn sm main", disabled: S.busy, onclick: function () {
-            S.busy = true; S.err = ""; render();
-            post("cwOwnerFix", [S.tok, sel.id, d, S.edit.in, S.edit.out, S.ym]).then(function (dd) { S.busy = false; S.edit = null; S.msg = sel.name + " " + dayLabel(d) + " 시각을 고쳤습니다."; take(dd); }, function (e) { S.busy = false; S.err = e.message; render(); });
+            var fi = S.edit.in, fo = S.edit.out;
+            if (fo && !fi) { alert("퇴근 시각만 넣을 수는 없습니다. 출근 시각도 넣으십시오."); return; }
+            upsertDay(S.v.days, sel.id, { date: d, in: fi ? fi + ":00" : "", out: fo ? fo + ":00" : "", inBy: fi ? "사장님" : "", outBy: fo ? "사장님" : "", fixed: true });
+            if (d >= cwKst(nowMs() - 86400000).date) { /* 오늘·어제를 고치면 대신 누르기 단추 상태도 바로 */
+              S.v.recent = (S.v.recent || []).filter(function (r) { return !(r.emp === sel.id && r.date === d); }).concat(fi || fo ? [{ emp: sel.id, date: d, in: fi ? fi + ":00" : "", out: fo ? fo + ":00" : "", inMs: fi ? cwMs(d, fi + ":00") : 0, outSet: true }] : []); }
+            S.edit = null; S.err = ""; S.msg = sel.name + " " + dayLabel(d) + " 시각을 고쳤습니다.";
+            enqueue("cwOwnerFix", [sel.id, d, fi, fo, S.ym], sel.name + " " + dayLabel(d) + " 고치기"); render();
           }, text: "저장" }),
           el("button", { type: "button", class: "btn sm", onclick: function () { S.edit = null; render(); }, text: "취소" })]),
           el("div", { class: "note", text: "퇴근이 출근보다 이르면 다음 날 퇴근. 두 칸을 비우고 저장하면 그 날 기록을 비웁니다(고친 기록은 남음)." })])]);
@@ -546,13 +601,20 @@ function tick() {
 }
 setInterval(function () {
   tick();
-  if (S.v && S.mode === "e" && S.v.today && cwKst(nowMs()).date !== S.v.today && !document.hidden) { S.v.today = cwKst(nowMs()).date; load(); } /* 자정이 지나면 다시 받음 */
+  if (S.v && S.mode === "e" && S.v.today && cwKst(nowMs()).date !== S.v.today && !document.hidden) { S.v.today = cwKst(nowMs()).date; S.rev = ""; load(); } /* 자정이 지나면 다시 받음(바뀜 표시와 상관없이 전체) */
 }, 1000);
 setInterval(function () { if (S.v && !document.hidden) load(); }, 60000);
-document.addEventListener("visibilitychange", function () { if (!document.hidden && S.v) { load(); flush(); } });
+document.addEventListener("visibilitychange", function () { if (document.hidden) beacon(); else if (S.v) { load(); flush(); } });
 
 /* ---- 시작: 열쇠는 주소 # 뒤. 사장님·직원 열쇠를 따로 기억(직원 링크를 열어 봐도 사장님 열쇠가 덮이지 않게) ---- */
-function start(mode, tok) { S = { mode: mode, tok: tok, v: null, skew: 0, ym: "", err: "", msg: "", who: "", edit: null, add: { name: "", wage: "" }, menu: "", busy: false }; S.err = ls("cw.r." + tok); if (S.err) ls("cw.r." + tok, null); say("불러오는 중입니다", "잠시만 기다려 주세요."); load(); flush(); }
+function start(mode, tok) {
+  S = { mode: mode, tok: tok, v: null, skew: 0, ym: "", rev: "", err: "", msg: "", who: "", edit: null, add: { name: "", wage: "" }, menu: "", busy: false };
+  S.err = ls("cw.r." + tok); if (S.err) ls("cw.r." + tok, null);
+  var c = keptView(tok), cur = cwKst(Date.now()).date.slice(0, 7);
+  if (c && (c.emp || c.emps) && (mode === "e" || c.ym === cur)) { S.v = c; S.ym = c.ym || ""; S.rev = c.rev || ""; S.stale = true; render(); }
+  else say("불러오는 중입니다", "잠시만 기다려 주세요.");
+  load(); flush();
+}
 function route() {
   var m = /^#([oe])([A-Za-z0-9]{22})$/.exec(location.hash);
   if (m) { ls(m[1] === "o" ? K_O : K_E, m[2]); return start(m[1], m[2]); }
