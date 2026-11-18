@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-B1Pwrj9jfrjCvzlufhvpx6k4ufR2oYIpAuVns4nqQmg='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>더바른 세무회계 근무 기록</title>
+<meta name="description" content="출근·퇴근 기록">
+<style>
+:root{--bg:#F2F5F7;--paper:#fff;--ink:#16212B;--fog:#5F6B77;--hair:#E3E8EC;--teal:#196F8F;--teal-soft:#E8F1F5;--pop:#C2410C;--pop-soft:#FFF4E8;--warn:#B23A2E;--r:16px;--shadow:0 1px 2px rgba(22,50,68,.05),0 6px 18px rgba(22,50,68,.06)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:520px;margin:0 auto;padding:16px 16px 48px}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--paper);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 16px;margin-bottom:12px}
+.eyebrow{font-size:13px;font-weight:600;color:var(--teal)}
+.big{font-size:22px;font-weight:700;margin:4px 0 0}
+.clock{font-size:28px;font-weight:700;color:var(--teal);letter-spacing:-.02em}
+.sub{font-size:13px;color:var(--fog)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.pbtn{min-height:84px;border:0;border-radius:16px;font:inherit;font-size:18px;font-weight:700;color:#fff;cursor:pointer}
+.pbtn.in{background:var(--teal)}.pbtn.out{background:var(--pop)}
+.pbtn:disabled{background:var(--hair);color:var(--fog);cursor:default}
+.btn{min-height:40px;padding:0 14px;border:0;border-radius:12px;background:var(--teal-soft);color:var(--teal);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.btn.main{background:var(--teal);color:#fff}.btn.sm{min-height:34px;padding:0 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.warn{background:#FBEDEB;color:var(--warn)}
+.link{border:0;background:none;color:var(--teal);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:6px 4px}
+h2{font-size:16px;font-weight:600;margin:0 0 10px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-size:12.5px;font-weight:600;color:var(--fog);text-align:left;padding:6px 4px;border-bottom:1px solid var(--hair)}
+td{padding:8px 4px;border-bottom:1px solid var(--hair)}
+td.r,th.r{text-align:right}
+td.r,td.num{white-space:nowrap}
+.emp{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--hair)}
+.emp:first-of-type{border-top:0}
+.emp .acts{display:flex;gap:6px}
+.menu{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;background:var(--bg);border-radius:12px;padding:6px}
+input[type=text],input[type=time],input[type=number]{font:inherit;font-size:15px;border:1px solid var(--hair);border-radius:10px;padding:8px 10px;min-width:0;background:#fff;color:var(--ink)}
+.form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.form input[type=text],.form input[type=number]{flex:1 1 120px}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;background:var(--bg);border-radius:12px;padding:8px 12px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pill{border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;background:var(--bg);color:var(--fog);cursor:pointer}
+.pill.on{background:var(--teal);color:#fff}
+.note{font-size:12.5px;color:var(--fog);margin-top:10px}
+.alert{font-size:13.5px;font-weight:600;color:var(--warn);margin-top:10px}
+.ok{font-size:13.5px;color:var(--teal);margin-top:10px}
+.msg{background:var(--paper);border-radius:var(--r);box-shadow:var(--shadow);padding:28px 20px;margin-top:40px;text-align:center}
+.msg b{display:block;font-size:17px;margin-bottom:6px}.msg span{font-size:14px;color:var(--fog)}
+.msg .row2{margin-top:18px}
+.ym{display:flex;align-items:center;gap:8px}
+.edit{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.edit input{width:110px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(22,33,43,.92);color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<main id="app"><div class="msg"><b>불러오는 중입니다</b><span>잠시만 기다려 주세요.</span></div></main>
+<div id="toast" class="toast" role="status"></div>
+<noscript><main><div class="msg"><b>이 브라우저에서는 열 수 없습니다</b><span>다른 브라우저로 열어 주세요.</span></div></main></noscript>
+<script>
+(function () {
+"use strict";
+var API = "https://script.google.com/macros/s/AKfycbw-F_NAFmuGlX2w_IZjv-dGbzvgpzT2WoIOcKrsuRngpZ3lsU_zwqz8E8dlYHn6UCbJ/exec";
+/* 하루 기록 접기(설계 6-1) — 팀 서버와 공개 근무화면이 같은 글자를 씀(근무화면_만들기.js 가 이 구간을 잘라 넣음).
+   rows = [{t 받은시각ms, emp, kind 'in'|'out'|'fix', date 출근 날짜, at 누른시각ms, fin, fout, by '직원'|'사장님'|'사무소:이름', op}] 를 받은 순서대로 다시 적용:
+   in = 출근이 비었을 때만 · out = 뒤에 온 것이 이김, 단 사장님·사무소가 정한 퇴근이 있으면 직원 out 은 무시 · fix = 그 값으로(둘 다 비면 그 날 비움), 이후 직원은 빈 칸만.
+   시각은 한국 시각(UTC+9 고정 — 서머타임 없음), 비교는 ms 로만 */
+const cwKst = (ms) => { const s = new Date(Number(ms) + 9 * 3600000).toISOString(); return { date: s.slice(0, 10), hms: s.slice(11, 19) }; };
+const cwMs = (date, hms) => Date.parse(date + 'T' + hms + '+09:00');
+const cwHms = (s) => (/^\d\d:\d\d$/.test(s) ? s + ':00' : s);
+function cwFold(rows) {
+  const days = {}, seen = {};
+  rows.slice().sort((a, b) => a.t - b.t).forEach((r) => {
+    if (r.op) { if (seen[r.op]) return; seen[r.op] = 1; }
+    const k = r.emp + '|' + r.date, set = r.by !== '직원';
+    const d = days[k] || (days[k] = { emp: r.emp, date: r.date, in: '', out: '', inMs: 0, outMs: 0, inBy: '', outBy: '', inSet: false, outSet: false, fixed: false });
+    if (r.kind === 'in') {
+      if (d.in) return;
+      d.in = cwKst(r.at).hms; d.inMs = Number(r.at); d.inBy = r.by; d.inSet = set;
+    } else if (r.kind === 'out') {
+      if (!set && d.outSet && d.out) return;
+      d.out = cwKst(r.at).hms; d.outMs = Number(r.at); d.outBy = r.by; d.outSet = set;
+    } else if (r.kind === 'fix') {
+      const fi = cwHms(r.fin || ''), fo = cwHms(r.fout || '');
+      d.in = fi; d.out = fo; d.inBy = fi ? r.by : ''; d.outBy = fo ? r.by : ''; d.inSet = d.outSet = true; d.fixed = true;
+      d.inMs = fi ? cwMs(r.date, fi) : 0;
+      d.outMs = fo ? cwMs(r.date, fo) : 0;
+      if (fi && fo && d.outMs < d.inMs) d.outMs += 86400000; /* 퇴근이 출근보다 이르면 다음 날 퇴근 */
+    }
+  });
+  return days;
+}
+const HOLIDAYS = {
+  "2026-01-01": "신정", "2026-02-16": "설날 연휴", "2026-02-17": "설날", "2026-02-18": "설날 연휴", "2026-03-01": "삼일절", "2026-03-02": "대체공휴일(삼일절)",
+  "2026-05-01": "노동절", "2026-05-05": "어린이날", "2026-05-24": "부처님오신날", "2026-05-25": "대체공휴일(부처님오신날)", "2026-06-03": "지방선거일",
+  "2026-06-06": "현충일", "2026-07-17": "제헌절", "2026-08-15": "광복절", "2026-08-17": "대체공휴일(광복절)", "2026-09-24": "추석 연휴", "2026-09-25": "추석",
+  "2026-09-26": "추석 연휴", "2026-10-03": "개천절", "2026-10-05": "대체공휴일(개천절)", "2026-10-09": "한글날", "2026-12-25": "성탄절",
+  "2027-01-01": "신정", "2027-02-06": "설날 연휴", "2027-02-07": "설날", "2027-02-08": "설날 연휴", "2027-02-09": "대체공휴일(설날)", "2027-03-01": "삼일절",
+  "2027-05-01": "노동절", "2027-05-03": "대체공휴일(노동절)", "2027-05-05": "어린이날", "2027-05-13": "부처님오신날", "2027-06-06": "현충일",
+  "2027-07-17": "제헌절", "2027-07-19": "대체공휴일(제헌절)", "2027-08-15": "광복절", "2027-08-16": "대체공휴일(광복절)", "2027-09-14": "추석 연휴",
+  "2027-09-15": "추석", "2027-09-16": "추석 연휴", "2027-10-03": "개천절", "2027-10-04": "대체공휴일(개천절)", "2027-10-09": "한글날",
+  "2027-10-11": "대체공휴일(한글날)", "2027-12-25": "성탄절", "2027-12-27": "대체공휴일(성탄절)",
+};
+const attSec = (s) => { const m = /^(\d\d):(\d\d)(?::(\d\d))?$/.exec(s || ""); return m ? +m[1] * 3600 + +m[2] * 60 + +(m[3] || 0) : null; };
+const attIso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+const attAdd = (iso, n) => attIso(new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) + n));
+const attHM = (sec) => { const m = Math.round((sec || 0) / 60); return `${Math.floor(m / 60)}시간 ${m % 60}분`; };
+const attH2 = (sec) => (Math.round((sec || 0) / 36) / 100).toLocaleString("ko-KR"); /* 시간, 소수 둘째 자리 */
+/* 하루 한 줄 → 근로 초. 퇴근 < 출근 = 다음 날 퇴근. brk = 법정 휴게 빼기(근로기준법 제54조 — 머문 시간 9시간 이상 1시간, 4시간 30분 이상 30분, 시작 날 몫에서 뺌)
+   hol(iso) = 휴일(일요일·공휴일)인지. 자정을 넘기면 날짜마다 나눠 휴일 근로를 셈 */
+function attShift(r, hol, brk) {
+  const s = attSec(r.in), e0 = attSec(r.out);
+  if (s == null || e0 == null) return { date: r.date, in: r.in || "", out: r.out || "", gross: 0, work: 0, night: 0, holW: 0, missing: true };
+  const e = e0 < s ? e0 + 86400 : e0, gross = e - s;
+  const b = !brk ? 0 : gross >= 9 * 3600 ? 3600 : gross >= 4.5 * 3600 ? 1800 : 0;
+  const ov = (a, z) => Math.max(0, Math.min(e, z) - Math.max(s, a));
+  const nightRaw = ov(0, 6 * 3600) + ov(22 * 3600, 30 * 3600) + ov(46 * 3600, 54 * 3600);
+  const work = gross - b, night = Math.min(nightRaw, work);
+  const d0 = ov(0, 86400), d1 = gross - d0; /* 시작 날·다음 날 몫 */
+  const day0 = Math.max(0, d0 - b), day1 = d1 - Math.max(0, b - d0);
+  const holW = (hol(r.date) ? day0 : 0) + (hol(attAdd(r.date, 1)) ? day1 : 0);
+  return { date: r.date, in: r.in, out: r.out, gross, work, night, holW, missing: false };
+}
+/* 한 사람의 한 달 급여(참고용). rows = 그 사람 줄(앞뒤 달 포함), ym = 'yyyy-MM', five = 5인 이상(가산수당 근로기준법 제56조), brk = 휴게 빼기
+   주휴(제55조·시행령 제30조): 월~일 한 주 평일 근로(하루 8시간까지) 15시간 이상 → min(그 합, 40) / 40 × 8 시간. 주휴일(일요일)이 든 달에 넣음. 개근·소정근로시간은 자료가 없어 확인 안 함
+   연장 = 평일 하루 8시간 초과 + 한 주 평일 근로(하루 8시간까지) 40시간 초과, 야간 = 22~06시, 휴일 = 하루 8시간까지 50%·초과 100% — 모두 5인 이상만 */
+function attendCalc(rows, ym, wage, five, brk, holidays, today) {
+  const hol = (iso) => new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)).getDay() === 0 || !!(holidays || {})[iso];
+  const sh = rows.map((r) => attShift(r, hol, brk)).sort((a, b) => (a.date < b.date ? -1 : 1));
+  const inM = (iso) => iso.slice(0, 7) === ym;
+  const weekEnd = (iso) => attAdd(iso, (7 - new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)).getDay()) % 7); /* 그 주 일요일 */
+  let work = 0, dayOT = 0, night = 0, hol8 = 0, holOver = 0;
+  const weeks = {};
+  sh.forEach((x) => {
+    const reg = x.work - x.holW, w = weekEnd(x.date);
+    weeks[w] = (weeks[w] || 0) + Math.min(reg, 8 * 3600);
+    if (!inM(x.date)) return;
+    work += x.work; night += x.night; dayOT += Math.max(0, reg - 8 * 3600);
+    hol8 += Math.min(x.holW, 8 * 3600); holOver += Math.max(0, x.holW - 8 * 3600);
+  });
+  let weekOT = 0, juhu = 0;
+  Object.keys(weeks).forEach((w) => { if (!inM(w)) return; weekOT += Math.max(0, weeks[w] - 40 * 3600); if (weeks[w] >= 15 * 3600) juhu += Math.min(weeks[w], 40 * 3600) / 40 * 8; });
+  const pay = (sec, rate) => Math.floor(sec / 3600 * (wage || 0) * rate);
+  const base = pay(work, 1), juhuWon = pay(juhu, 1);
+  const otWon = five ? pay(dayOT + weekOT, 0.5) : 0, nightWon = five ? pay(night, 0.5) : 0, holWon = five ? pay(hol8, 0.5) + pay(holOver, 1) : 0;
+  const extra = otWon + nightWon + holWon;
+  return { days: sh.filter((x) => inM(x.date)), work, dayOT, weekOT, night, hol8, holOver, juhu, base, juhuWon, otWon, nightWon, holWon, extra, total: base + extra + juhuWon, missing: sh.filter((x) => inM(x.date) && x.missing && !(today && x.date >= attAdd(today, -1))).length }; /* 오늘·어제 근무 중인 줄은 빠짐으로 안 셈 */
+}
+var app = document.getElementById("app"), toastEl = document.getElementById("toast");
+var K_O = "cw.o", K_E = "cw.e", K_Q = "cw.q", TOKRE = /^[A-Za-z0-9]{22}$/;
+var DELAYS = [2, 5, 15, 30, 60];
+var LOAD_ERR = "새로 받지 못했습니다 — 잠시 뒤 다시 시도합니다.";
+var TRANSIENT = /simultaneous|Service|timed out|timeout|Exceeded|잠시|Lock|잠금|서버/i;
+var B62 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+var WD = ["일", "월", "화", "수", "목", "금", "토"];
+var S = { mode: "", tok: "", v: null, skew: 0, ym: "", err: "", msg: "", who: "", edit: null, add: { name: "", wage: "" }, menu: "", busy: false };
+
+function ls(k, v) {
+  try { if (v === undefined) return localStorage.getItem(k) || ""; if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return ""; }
+  return "";
+}
+function el(tag, a, kids) {
+  var e = document.createElement(tag);
+  Object.keys(a || {}).forEach(function (k) {
+    var v = a[k];
+    if (v == null || v === false) return;
+    if (k === "text") e.textContent = v;
+    else if (k.slice(0, 2) === "on") e[k] = v;
+    else if (k === "value") e.value = v;
+    else if (k === "checked" || k === "disabled") e[k] = !!v;
+    else e.setAttribute(k, v === true ? "" : v);
+  });
+  (kids || []).forEach(function (c) { if (c != null && c !== false) e.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+  return e;
+}
+function say(t, s, extra) { app.textContent = ""; app.appendChild(el("div", { class: "msg" }, [el("b", { text: t }), el("span", { text: s })].concat(extra || []))); }
+function toast(t) { toastEl.textContent = t; toastEl.className = "toast on"; setTimeout(function () { toastEl.className = "toast"; }, 1800); }
+function rid() { var a = new Uint8Array(16); crypto.getRandomValues(a); return Array.prototype.map.call(a, function (b) { return B62[b % 62]; }).join(""); }
+function nowMs() { return Date.now() + S.skew; }
+function post(fn, args) {
+  return fetch(API, { method: "POST", credentials: "omit", body: JSON.stringify({ fn: fn, cred: "", args: args }) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { if (j.ok) return j.data; var e = new Error(j.error || "요청을 처리하지 못했습니다."); e.server = true; throw e; });
+}
+function copy(t) {
+  function old() {
+    var ta = el("textarea", { value: t, style: "position:fixed;opacity:0" }); document.body.appendChild(ta); ta.select();
+    var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    ta.remove(); if (!ok) window.prompt("아래 내용을 길게 눌러 복사하세요", t); else toast("복사했습니다");
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { toast("복사했습니다"); }, old); else old();
+}
+function dayLabel(iso) { var d = new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)); return (+iso.slice(5, 7)) + "/" + (+iso.slice(8, 10)) + "(" + WD[d.getDay()] + ")"; }
+function hm(s) { return s ? s.slice(0, 5) : "-"; }
+function monthDays(ym) { var n = new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate(), r = []; for (var i = 1; i <= n; i++) r.push(ym + "-" + String(i).padStart(2, "0")); return r; }
+
+/* ---- 저장 대기열: 누른 값은 이 휴대폰에 붙잡아 두고 성공할 때까지 다시 보냄(2·5·15·30·60초, 그 뒤 2분마다, 0~50% 흔들림). 같은 opId 는 서버가 한 번만 저장 ---- */
+function qLoad() { try { var q = JSON.parse(ls(K_Q) || "[]"); return Array.isArray(q) ? q : []; } catch (e) { return []; } }
+function qSave(q) { ls(K_Q, JSON.stringify(q)); }
+var flushing = false, qTimer = 0;
+function enqueue(fn, args, label) { var q = qLoad(); q.push({ op: rid(), fn: fn, tok: S.tok, args: args, label: label, n: 0, next: 0 }); qSave(q); flush(); }
+function pendingOf(fn, tok) { return qLoad().filter(function (x) { return x.fn === fn && x.tok === tok; }); }
+function schedule() {
+  clearTimeout(qTimer);
+  var q = qLoad(); if (!q.length) return;
+  qTimer = setTimeout(flush, Math.max(300, q[0].next - Date.now()));
+}
+function flush() {
+  if (flushing) return;
+  var it = qLoad()[0]; /* 누른 순서대로 하나씩 — 앞 출근이 기다리는 동안 뒤 퇴근이 먼저 가면 '출근 기록이 없습니다'로 거절돼 사라짐 */
+  if (!it || it.next > Date.now()) return schedule();
+  flushing = true;
+  post(it.fn, [it.tok].concat(it.args, [it.op])).then(function (data) {
+    qSave(qLoad().filter(function (x) { return x.op !== it.op; }));
+    if (it.tok === S.tok && data) take(data, true);
+  }, function (e) {
+    var q = qLoad(), x = q.filter(function (y) { return y.op === it.op; })[0];
+    if (!x) return;
+    if (e.server && !TRANSIENT.test(e.message)) { /* 서버가 거절(이미 누름 등) — 다시 보내도 안 됨 */
+      qSave(q.filter(function (y) { return y.op !== it.op; }));
+      if (it.tok === S.tok) { S.err = it.label + " 저장 안 됨: " + e.message; load(); }
+      else ls("cw.r." + it.tok, it.label + " 저장 안 됨: " + e.message); /* 다른 화면(관리·출퇴근)에서 보낸 것 — 그 화면을 열 때 보여 줌 */
+    } else { x.n++; x.next = Date.now() + (x.n <= DELAYS.length ? DELAYS[x.n - 1] : 120) * 1000 * (1 + Math.random() * 0.5); qSave(q); }
+  }).then(function () { flushing = false; render(); flush(); });
+}
+window.addEventListener("online", function () { var q = qLoad(); q.forEach(function (x) { x.next = 0; }); qSave(q); flush(); });
+
+/* ---- 받기 ---- */
+function take(d, fromPunch) {
+  if (!d) return;
+  S.skew = d.now - Date.now();
+  if (S.err === LOAD_ERR) S.err = "";
+  if (S.mode === "o" && fromPunch && S.v && d.ym !== S.ym) S.v.recent = d.recent; /* 다른 달을 보는 중이면 오늘 상태만 */
+  else S.v = d;
+  if (S.mode === "o" && !S.ym) S.ym = d.ym;
+  render();
+}
+var loadSeq = 0;
+function load() {
+  var n = ++loadSeq, mode = S.mode, tok = S.tok;
+  var p = mode === "e" ? post("cwEmp", [tok]) : post("cwOwner", [tok, S.ym]);
+  p.then(function (d) { if (n === loadSeq) take(d); }, function (e) {
+    if (n !== loadSeq) return;
+    if (e.server && /링크가 바뀌었거나|퇴사 처리된/.test(e.message)) {
+      if (ls(mode === "o" ? K_O : K_E) === tok) ls(mode === "o" ? K_O : K_E, null); /* 끊긴 열쇠는 이 휴대폰에서도 지움 */
+      return say(/퇴사/.test(e.message) ? "퇴사 처리된 링크입니다" : "링크를 확인해 주세요", e.message);
+    }
+    if (!S.v) return say("불러오지 못했습니다", "인터넷 연결을 확인하고 잠시 뒤 다시 열어 주세요. (" + (e.server ? e.message : "연결 실패") + ")");
+    S.err = LOAD_ERR; render();
+  });
+}
+
+/* ---- 오늘 상태(서버 규칙과 같게: 어제 출근만 있고 16시간 안이면 자정 넘김 근무) + 보내는 중인 값 ---- */
+function stateOf(recent, pend, ms) {
+  var today = cwKst(ms).date, yest = cwKst(ms - 86400000).date;
+  var t0 = recent.filter(function (x) { return x.date === today; })[0], t = t0 ? { in: t0.in, out: t0.out } : null;
+  var y = recent.filter(function (x) { return x.date === yest && x.in && !x.out && ms - x.inMs <= 16 * 3600000; })[0];
+  var night = !(t && t.in) && y ? { in: y.in, out: "" } : null;
+  pend.forEach(function (p) {
+    var s = cwKst(p.at).hms;
+    if (p.kind === "in") { t = { in: s, out: "" }; night = null; }
+    else if (night && !night.out) night.out = s;
+    else if (t && t.in) t.out = s;
+  });
+  var openNight = night && !night.out;
+  return {
+    canIn: !(t && t.in) && !openNight,
+    canOut: openNight || !!(t && t.in && !t.out),
+    inTxt: night ? "어제 " + hm(night.in) : hm(t && t.in),
+    outTxt: night && night.out ? hm(night.out) : hm(t && t.out),
+    inDone: !!(t && t.in) || openNight, outDone: !!(t && t.out) || !!(night && night.out)
+  };
+}
+
+/* ---- 직원 화면 ---- */
+function renderEmp() {
+  var v = S.v, ms = nowMs(), pend = pendingOf("cwPunch", S.tok).map(function (x) { return { kind: x.args[0], at: x.args[1] }; });
+  var st = stateOf(v.recent || [], pend, ms), k = cwKst(ms);
+  function punch(kind) {
+    if (kind === "out" && !confirm("퇴근할까요?")) return;
+    S.err = ""; enqueue("cwPunch", [kind, nowMs()], kind === "in" ? "출근" : "퇴근"); render();
+  }
+  var rows = (v.days || []).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).map(function (d) {
+    var s = attShift(d, function () { return false; }, false);
+    return el("tr", {}, [el("td", { text: dayLabel(d.date) }), el("td", { class: "num", text: hm(d.in) }), el("td", { class: "num", text: d.out ? (attSec(d.out) < attSec(d.in) ? "다음 날 " : "") + hm(d.out) : "-" }), el("td", { class: "r num", text: s.missing ? "-" : attHM(s.gross) })]);
+  });
+  app.textContent = "";
+  app.appendChild(el("div", { class: "card" }, [
+    el("div", { class: "eyebrow", text: "더바른 세무회계 · " + v.name }),
+    el("div", { class: "big", text: v.emp + " 님" }),
+    el("div", { class: "sub num", id: "clockD", text: "" }),
+    el("div", { class: "clock num", id: "clockT", text: "" }),
+    el("div", { class: "row2" }, [
+      el("button", { type: "button", class: "pbtn in", disabled: !st.canIn, onclick: function () { punch("in"); }, text: st.inDone ? "출근 완료" : "출근하기" }),
+      el("button", { type: "button", class: "pbtn out", disabled: !st.canOut, onclick: function () { punch("out"); }, text: st.outDone && !st.canOut ? "퇴근 완료" : "퇴근하기" })
+    ]),
+    el("div", { class: "sub num", style: "margin-top:10px;text-align:center" , text: "오늘  출근 " + st.inTxt + " · 퇴근 " + st.outTxt }),
+    pend.length ? el("div", { class: "note", text: "저장하는 중… 누른 시각은 이 휴대폰에 붙잡아 두었고, 연결이 끊겨도 저장될 때까지 다시 보냅니다." }) : null,
+    S.err ? el("div", { class: "alert", role: "alert", text: S.err }) : null
+  ]));
+  app.appendChild(el("div", { class: "card" }, [
+    el("h2", { text: k.date.slice(0, 4) + "년 " + (+k.date.slice(5, 7)) + "월 기록" }),
+    el("table", {}, [el("thead", {}, [el("tr", {}, [el("th", { text: "날짜" }), el("th", { text: "출근" }), el("th", { text: "퇴근" }), el("th", { class: "r", text: "근무시간" })])]), el("tbody", {}, rows.length ? rows : [el("tr", {}, [el("td", { colspan: "4", class: "sub", text: "이 달 기록이 없습니다." })])])]),
+    el("div", { class: "note", text: "근무시간 = 퇴근 − 출근(휴게시간 포함). 시각이 틀렸으면 사장님께 고쳐 달라고 하십시오." })
+  ]));
+  app.appendChild(el("p", { class: "note", text: "홈 화면에 추가해 두면 다음에 바로 열립니다. 아이폰: 공유 단추 → 홈 화면에 추가 · 안드로이드: ⋮ → 홈 화면에 추가" }));
+  tick();
+}
+
+/* ---- 사장님 화면 ---- */
+function ownerSave(p, okMsg) {
+  S.busy = true; S.err = ""; S.msg = ""; render();
+  p.ym = S.ym;
+  return post("cwOwnerSave", [S.tok, p]).then(function (d) { S.busy = false; S.msg = okMsg || ""; take(d); return true; }, function (e) { S.busy = false; S.err = e.message; render(); return false; });
+}
+function empUrl(tok) { return location.href.split("#")[0] + "#e" + tok; }
+function empLink(e, kakao) {
+  post("cwOwnerLink", [S.tok, e.id]).then(function (tok) {
+    copy(kakao ? e.name + " 님, " + S.v.name + " 출퇴근 기록 링크입니다.\n" + empUrl(tok) + "\n\n출근·퇴근 때 이 링크를 열어 단추를 누르십시오. 홈 화면에 추가해 두면 다음에 바로 열립니다. 이 링크는 본인만 쓰십시오." : empUrl(tok));
+  }, function (err) { S.err = err.message; render(); });
+}
+function csv() {
+  var v = S.v, name = {}; v.emps.forEach(function (e) { name[e.id] = e.name; });
+  var lines = [["직원", "날짜", "출근", "퇴근", "근무시간(휴게 포함)", "출근 기록", "퇴근 기록"]];
+  v.days.filter(function (d) { return d.date.slice(0, 7) === S.ym; }).sort(function (a, b) { return a.emp + a.date < b.emp + b.date ? -1 : 1; }).forEach(function (d) {
+    var s = attShift(d, function () { return false; }, false);
+    lines.push([name[d.emp] || d.emp, d.date, d.in, d.out, s.missing ? "" : attHM(s.gross), d.inBy, d.outBy + (d.fixed ? " (고침)" : "")]);
+  });
+  var a = el("a", { download: "근무기록_" + v.name + "_" + S.ym + ".csv" });
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.map(function (r) { return r.map(function (x) { var t = String(x == null ? "" : x); if (/^[=+\-@]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n")], { type: "text/csv" }));
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+}
+function renderOwner() {
+  var v = S.v, ms = nowMs(), today = cwKst(ms).date;
+  var live = v.emps.filter(function (e) { return e.state === "재직"; }), gone = v.emps.filter(function (e) { return e.state !== "재직"; });
+  var pendAll = pendingOf("cwOwnerPunch", S.tok);
+  app.textContent = "";
+  /* 오늘 */
+  var empRows = live.map(function (e) {
+    var pend = pendAll.filter(function (x) { return x.args[0] === e.id; }).map(function (x) { return { kind: x.args[1], at: x.args[2] }; });
+    var st = stateOf((v.recent || []).filter(function (r) { return r.emp === e.id; }), pend, ms);
+    function punch(kind) {
+      if (kind === "out" && !confirm(e.name + " 퇴근 처리할까요?")) return;
+      S.err = ""; enqueue("cwOwnerPunch", [e.id, kind, nowMs()], e.name + " " + (kind === "in" ? "출근" : "퇴근")); render();
+    }
+    var open = S.menu === e.id;
+    return el("div", { class: "emp", "data-emp": e.id }, [
+      el("div", {}, [el("b", { text: e.name }), el("div", { class: "sub num", text: "출근 " + st.inTxt + " · 퇴근 " + st.outTxt + (pend.length ? " · 저장하는 중…" : "") })]),
+      el("div", { class: "acts" }, [
+        el("button", { type: "button", class: "btn sm", disabled: !st.canIn, onclick: function () { punch("in"); }, text: "출근" }),
+        el("button", { type: "button", class: "btn sm", disabled: !st.canOut, onclick: function () { punch("out"); }, text: "퇴근" }),
+        el("button", { type: "button", class: "link", "aria-expanded": open ? "true" : "false", "aria-label": e.name + " 메뉴", onclick: function () { S.menu = open ? "" : e.id; render(); }, text: "⋯" })
+      ]),
+      open ? el("div", { class: "menu" }, [
+        el("button", { type: "button", class: "link", onclick: function () { empLink(e, false); }, text: "링크 복사" }),
+        el("button", { type: "button", class: "link", onclick: function () { empLink(e, true); }, text: "카톡 문구 복사" }),
+        el("button", { type: "button", class: "link", onclick: function () { var w = prompt(e.name + " 시급(원)", String(e.wage)); if (w != null) ownerSave({ op: "edit", id: e.id, wage: w.replace(/[^\d]/g, "") }, "시급을 고쳤습니다."); }, text: "시급 고치기" }),
+        el("button", { type: "button", class: "link", onclick: function () { if (confirm(e.name + " 직원 링크를 다시 만들까요? 쓰던 링크는 바로 끊깁니다.")) ownerSave({ op: "reissue", id: e.id }, "새 링크를 만들었습니다. [링크 복사]로 다시 보내 주세요."); }, text: "링크 다시 만들기" }),
+        el("button", { type: "button", class: "link", style: "color:var(--warn)", onclick: function () { if (confirm(e.name + " 퇴사 처리할까요? 직원 링크가 열리지 않습니다(기록은 남음).")) ownerSave({ op: "quit", id: e.id }, e.name + " 퇴사 처리했습니다."); }, text: "퇴사 처리" })
+      ]) : null
+    ]);
+  });
+  var nameIn = el("input", { type: "text", "aria-label": "직원 이름", placeholder: "이름", maxlength: "20", value: S.add.name, oninput: function () { S.add.name = this.value; } });
+  var wageIn = el("input", { type: "number", "aria-label": "시급", placeholder: "시급(원)", inputmode: "numeric", min: "0", value: S.add.wage, oninput: function () { S.add.wage = this.value; } });
+  app.appendChild(el("div", { class: "card" }, [
+    el("div", { class: "eyebrow", text: "더바른 세무회계 · 관리" }),
+    el("div", { class: "big", text: v.name + " 근무현황" }),
+    el("div", { class: "sub num", id: "clockD" }), el("div", { class: "clock num", id: "clockT" }),
+    el("h2", { style: "margin-top:16px", text: "오늘 출퇴근 (직원 대신 누르기)" }),
+    el("div", {}, empRows.length ? empRows : [el("div", { class: "sub", text: "아래에서 직원을 추가해 주세요." })]),
+    el("h2", { style: "margin-top:16px", text: "+ 직원 추가" }),
+    el("div", { class: "form" }, [nameIn, wageIn, el("button", { type: "button", class: "btn main", disabled: S.busy, onclick: function () {
+      ownerSave({ op: "add", name: S.add.name, wage: S.add.wage || 0 }, S.add.name + " 님을 추가했습니다. ⋯ 메뉴의 [카톡 문구 복사]로 링크를 보내 주세요.").then(function (ok) { if (ok) { S.add = { name: "", wage: "" }; render(); } });
+    }, text: "추가" })]),
+    gone.length ? el("div", { class: "note" }, ["퇴사: "].concat(gone.map(function (e) { return el("button", { type: "button", class: "link", onclick: function () { if (confirm(e.name + " 다시 재직으로 돌릴까요?")) ownerSave({ op: "back", id: e.id }, e.name + " 재직으로 돌렸습니다."); }, text: e.name + " (복직)" }); }))) : null,
+    S.msg ? el("div", { class: "ok", text: S.msg }) : null,
+    S.err ? el("div", { class: "alert", role: "alert", text: S.err }) : null,
+    pendAll.length ? el("div", { class: "note", text: "저장하는 중… 연결이 끊겨도 저장될 때까지 다시 보냅니다." }) : null
+  ]));
+  /* 월 기록·참고 급여 */
+  var y = +S.ym.slice(0, 4), m = +S.ym.slice(5, 7);
+  function moveYm(n) { var d = new Date(y, m - 1 + n, 1); S.ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); S.edit = null; load(); }
+  var pay = live.concat(gone).map(function (e) {
+    var r = attendCalc(v.days.filter(function (d) { return d.emp === e.id; }), S.ym, e.wage, v.five, v.brk, HOLIDAYS, today);
+    return el("tr", {}, [el("td", { text: e.name + (r.missing ? " · 퇴근 빠짐 " + r.missing + "일" : "") }), el("td", { class: "r num", text: attH2(r.work) + "시간" }), el("td", { class: "r num", text: r.total.toLocaleString("ko-KR") + "원" })]);
+  });
+  app.appendChild(el("div", { class: "card" }, [
+    el("div", { class: "ym" }, [el("button", { type: "button", class: "btn sm", "aria-label": "이전 달", onclick: function () { moveYm(-1); }, text: "‹" }), el("h2", { style: "margin:0", text: y + "년 " + m + "월" }), el("button", { type: "button", class: "btn sm", "aria-label": "다음 달", onclick: function () { moveYm(1); }, text: "›" })]),
+    el("div", { class: "form", style: "margin:12px 0" }, [
+      el("label", { class: "chk" }, [el("input", { type: "checkbox", checked: v.five, disabled: S.busy, onchange: function () { ownerSave({ op: "cfg", five: this.checked, brk: v.brk }, "설정을 바꿨습니다."); } }), "5인 이상 사업장"]),
+      el("label", { class: "chk" }, [el("input", { type: "checkbox", checked: v.brk, disabled: S.busy, onchange: function () { ownerSave({ op: "cfg", five: v.five, brk: this.checked }, "설정을 바꿨습니다."); } }), "휴게시간 빼기"])
+    ]),
+    el("table", {}, [el("thead", {}, [el("tr", {}, [el("th", { text: "직원" }), el("th", { class: "r", text: "근무시간" }), el("th", { class: "r", text: "참고 급여(세전)" })])]), el("tbody", {}, pay)]),
+    el("div", { class: "note", text: "참고 계산입니다. 개근·소정근로시간 자료가 없어 주휴수당은 15시간 기준으로만 계산합니다." })
+  ]));
+  /* 날짜별 기록 고치기 */
+  var sel = v.emps.filter(function (e) { return e.id === S.who; })[0] || live[0] || v.emps[0];
+  if (sel) {
+    var days = monthDays(S.ym).filter(function (d) { return d <= today; }).reverse();
+    var rows = days.map(function (d) {
+      var x = v.days.filter(function (r) { return r.emp === sel.id && r.date === d; })[0] || {};
+      var ed = S.edit && S.edit.date === d;
+      var by = x.inBy || x.outBy ? "출근 " + (x.inBy || "-") + " · 퇴근 " + (x.outBy || "-") + (x.fixed ? " · 고침" : "") : "";
+      if (ed) {
+        var tin = el("input", { type: "time", "aria-label": dayLabel(d) + " 출근", value: S.edit.in, oninput: function () { S.edit.in = this.value; } });
+        var tout = el("input", { type: "time", "aria-label": dayLabel(d) + " 퇴근", value: S.edit.out, oninput: function () { S.edit.out = this.value; } });
+        return el("tr", {}, [el("td", { colspan: "3" }, [el("div", { style: "font-weight:600;margin-bottom:6px", text: dayLabel(d) }), el("div", { class: "edit" }, [tin, "~", tout,
+          el("button", { type: "button", class: "btn sm main", disabled: S.busy, onclick: function () {
+            S.busy = true; S.err = ""; render();
+            post("cwOwnerFix", [S.tok, sel.id, d, S.edit.in, S.edit.out, S.ym]).then(function (dd) { S.busy = false; S.edit = null; S.msg = sel.name + " " + dayLabel(d) + " 시각을 고쳤습니다."; take(dd); }, function (e) { S.busy = false; S.err = e.message; render(); });
+          }, text: "저장" }),
+          el("button", { type: "button", class: "btn sm", onclick: function () { S.edit = null; render(); }, text: "취소" })]),
+          el("div", { class: "note", text: "퇴근이 출근보다 이르면 다음 날 퇴근. 두 칸을 비우고 저장하면 그 날 기록을 비웁니다(고친 기록은 남음)." })])]);
+      }
+      return el("tr", {}, [el("td", {}, [dayLabel(d), by ? el("div", { class: "sub", style: "font-size:11.5px", text: by }) : null]), el("td", { class: "num", text: hm(x.in) + " ~ " + hm(x.out) }),
+        el("td", { class: "r" }, [el("button", { type: "button", class: "link", "aria-label": dayLabel(d) + " 고치기", onclick: function () { S.edit = { date: d, in: hm(x.in) === "-" ? "" : hm(x.in), out: hm(x.out) === "-" ? "" : hm(x.out) }; render(); }, text: "고치기" })])]);
+    });
+    app.appendChild(el("div", { class: "card" }, [
+      el("h2", { text: "날짜별 기록" }),
+      el("div", { class: "pills" }, v.emps.map(function (e) { return el("button", { type: "button", class: "pill" + (e.id === sel.id ? " on" : ""), onclick: function () { S.who = e.id; S.edit = null; render(); }, text: e.name }); })),
+      el("table", {}, [el("tbody", {}, rows)]),
+      el("div", { class: "form", style: "margin-top:12px" }, [el("button", { type: "button", class: "btn", onclick: csv, text: "이 달 기록 내려받기(CSV)" })]),
+      el("div", { class: "note", text: "출퇴근 기록은 3년간 보관해야 합니다(근로기준법 제42조). 기록은 지워지지 않고, 고친 기록이 덧붙습니다." })
+    ]));
+  }
+  app.appendChild(el("p", { class: "note", text: "이 화면은 사장님 관리용입니다. 링크를 다른 사람에게 보내지 마십시오. 홈 화면에 추가해 두면 다음에 바로 열립니다." }));
+  tick();
+}
+
+var renderWait = false;
+function render() {
+  if (!S.v) return;
+  var a = document.activeElement;
+  if (a && app.contains(a) && (a.tagName === "INPUT" || a.tagName === "TEXTAREA") && a.type !== "checkbox") { /* 입력 중이면 다 친 뒤에 다시 그림 */
+    if (!renderWait) { renderWait = true; a.addEventListener("blur", function f() { a.removeEventListener("blur", f); renderWait = false; setTimeout(render, 0); }); }
+    return;
+  }
+  if (S.mode === "e") renderEmp(); else renderOwner();
+}
+function tick() {
+  var d = document.getElementById("clockD"), t = document.getElementById("clockT");
+  if (!d || !t) return;
+  var k = cwKst(nowMs()), w = new Date(Date.UTC(+k.date.slice(0, 4), +k.date.slice(5, 7) - 1, +k.date.slice(8, 10))).getUTCDay();
+  d.textContent = (+k.date.slice(5, 7)) + "월 " + (+k.date.slice(8, 10)) + "일(" + WD[w] + ") · 팀 서버 시각";
+  t.textContent = k.hms;
+}
+setInterval(function () {
+  tick();
+  if (S.v && S.mode === "e" && S.v.today && cwKst(nowMs()).date !== S.v.today && !document.hidden) { S.v.today = cwKst(nowMs()).date; load(); } /* 자정이 지나면 다시 받음 */
+}, 1000);
+setInterval(function () { if (S.v && !document.hidden) load(); }, 60000);
+document.addEventListener("visibilitychange", function () { if (!document.hidden && S.v) { load(); flush(); } });
+
+/* ---- 시작: 열쇠는 주소 # 뒤. 사장님·직원 열쇠를 따로 기억(직원 링크를 열어 봐도 사장님 열쇠가 덮이지 않게) ---- */
+function start(mode, tok) { S = { mode: mode, tok: tok, v: null, skew: 0, ym: "", err: "", msg: "", who: "", edit: null, add: { name: "", wage: "" }, menu: "", busy: false }; S.err = ls("cw.r." + tok); if (S.err) ls("cw.r." + tok, null); say("불러오는 중입니다", "잠시만 기다려 주세요."); load(); flush(); }
+function route() {
+  var m = /^#([oe])([A-Za-z0-9]{22})$/.exec(location.hash);
+  if (m) { ls(m[1] === "o" ? K_O : K_E, m[2]); return start(m[1], m[2]); }
+  var o = ls(K_O), e = ls(K_E);
+  o = TOKRE.test(o) ? o : ""; e = TOKRE.test(e) ? e : "";
+  if (o && e) return say("어느 화면을 열까요?", "이 휴대폰에 관리 링크와 출퇴근 링크가 모두 기억돼 있습니다.", [el("div", { class: "row2" }, [
+    el("button", { type: "button", class: "btn main", onclick: function () { start("o", o); }, text: "관리 화면" }),
+    el("button", { type: "button", class: "btn", onclick: function () { start("e", e); }, text: "출퇴근 화면" })])]);
+  if (o) return start("o", o);
+  if (e) return start("e", e);
+  say("받은 링크를 다시 열어 주세요", "카톡으로 받은 링크를 눌러 열어 주세요. 홈 화면 아이콘이 열리지 않으면 받은 링크를 다시 열고 홈 화면에 다시 추가해 주세요.");
+}
+window.addEventListener("hashchange", route);
+route();
+})();
+</script>
+</body>
+</html>
