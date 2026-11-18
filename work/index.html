@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-dqQXr5G4QpV98TfsDps3RIM3UFaKJH9hzXdSBD6sNAs='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Eq5iPRD0iidMool5XGFIVp/YZyH/724c+6qq1+H9D3g='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -373,7 +373,7 @@ function csv() {
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
 }
 /* 직원 메뉴 = 아래에서 올라오는 시트(PC 폭은 가운데 창). 맨 위 이름·시급, 동작은 한 줄에 하나, 퇴사는 맨 아래 따로 빨간색 */
-function closeSheet() { S.menu = ""; S.wedit = null; S.redit = null; render(); }
+function closeSheet() { S.menu = ""; S.wedit = null; S.redit = null; S.nedit = null; render(); }
 function empSheet(e) {
   function act(title, desc, fn, cls) { return el("button", { type: "button", class: "act" + (cls ? " " + cls : ""), onclick: fn }, [el("b", { text: title }), el("span", { text: desc })]); }
   var wrow;
@@ -386,6 +386,19 @@ function empSheet(e) {
       el("button", { type: "button", class: "btn sm", onclick: function () { S.wedit = null; render(); }, text: "취소" })]);
     if (S.wfocus) { S.wfocus = false; setTimeout(function () { winp.focus(); var n = winp.value.length; try { winp.setSelectionRange(n, n); } catch (x) { /* 무시 */ } }, 0); } /* 칸을 연 그때 한 번만 — 그리면서 매번 초점을 주면 입력 중으로 보여 저장 뒤 다시 그리기가 미뤄짐 */
   } else wrow = act("시급 고치기", "지금 " + won(e.wage) + "원", function () { S.wedit = String(e.wage || ""); S.wfocus = true; render(); });
+  var nrow; /* 이름 옆 [이름 고치기](2026-11-18) — 같은 이름 검사·주민번호 모양 거절은 서버 cwName_ */
+  if (S.nedit != null) {
+    var ninp = el("input", { type: "text", maxlength: "20", autocomplete: "off", "aria-label": e.name + " 새 이름", value: S.nedit, oninput: function () { S.nedit = this.value; } });
+    nrow = el("div", { class: "wedit", id: "sheetWho" }, [ninp,
+      el("button", { type: "button", class: "btn sm main", disabled: S.busy, onclick: function () {
+        var nm = String(S.nedit || "").trim();
+        if (!nm || nm === e.name) { S.nedit = null; render(); return; }
+        ownerSave({ op: "edit", id: e.id, name: nm }, e.name + " → " + nm + " 이름을 고쳤습니다.").then(function (ok) { if (ok) { S.nedit = null; render(); } });
+      }, text: "저장" }),
+      el("button", { type: "button", class: "btn sm", onclick: function () { S.nedit = null; render(); }, text: "취소" })]);
+    if (S.nfocus) { S.nfocus = false; setTimeout(function () { ninp.focus(); ninp.select(); }, 0); }
+  } else nrow = el("div", { style: "display:flex;align-items:center;gap:8px" }, [el("div", { class: "who", id: "sheetWho", text: e.name }),
+    el("button", { type: "button", class: "btn sm", "aria-label": e.name + " 이름 고치기", onclick: function () { S.nedit = e.name; S.nfocus = true; render(); }, text: "이름 고치기" })]);
   var rrow;
   if (S.redit != null) {
     var rinp = rrnInput(el("input", { type: "text", inputmode: "numeric", autocomplete: "off", maxlength: "14", placeholder: "000000-0000000", "aria-label": e.name + " 주민등록번호", value: S.redit.length > 6 ? S.redit.slice(0, 6) + "-" + S.redit.slice(6) : S.redit }), function (d) { S.redit = d; });
@@ -403,7 +416,7 @@ function empSheet(e) {
   var bg = el("div", { class: "sheet-bg", onclick: function (ev) { if (ev.target === bg) closeSheet(); } }, [
     el("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-labelledby": "sheetWho" }, [
       el("div", { class: "grab" }),
-      el("div", { class: "who", id: "sheetWho", text: e.name }),
+      nrow,
       el("div", { class: "meta num", text: "시급 " + won(e.wage) + "원 · 재직 · 개인 링크 사용 중" }),
       rrow,
       act("링크 복사", "직원에게 보낼 주소만 복사합니다", function () { empLink(e, false); closeSheet(); }),
@@ -436,7 +449,7 @@ function renderOwner() {
       el("div", { class: "acts" }, [
         el("button", { type: "button", class: "btn sm", disabled: !st.canIn, onclick: function () { punch("in"); }, text: "출근" }),
         el("button", { type: "button", class: "btn sm", disabled: !st.canOut, onclick: function () { punch("out"); }, text: "퇴근" }),
-        el("button", { type: "button", class: "btn sm", "aria-haspopup": "dialog", "aria-label": e.name + " 메뉴", onclick: function () { S.menu = e.id; S.wedit = null; S.redit = null; render(); }, text: "⋯" })
+        el("button", { type: "button", class: "btn sm", "aria-haspopup": "dialog", "aria-label": e.name + " 메뉴", onclick: function () { S.menu = e.id; S.wedit = null; S.redit = null; S.nedit = null; render(); }, text: "⋯" })
       ])
     ]);
   });
