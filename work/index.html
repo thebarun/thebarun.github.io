@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-UimSOGOM0V6boUFIZObWLYQzginGveltbO4QLUyFuMs='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-lRdoCdtCUbUTTki2PyALSwi16Y6IJXR7bWnn+Ww12Q0='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -11,7 +11,8 @@
 <style>
 :root{--bg:#F2F5F7;--paper:#fff;--ink:#16212B;--fog:#5F6B77;--hair:#E3E8EC;--teal:#196F8F;--teal-soft:#E8F1F5;--pop:#C2410C;--pop-soft:#FFF4E8;--warn:#B23A2E;--r:16px;--shadow:0 1px 2px rgba(22,50,68,.05),0 6px 18px rgba(22,50,68,.06)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%;word-break:keep-all;overflow-wrap:break-word}
+.center{text-align:center}
 main{max-width:520px;margin:0 auto;padding:16px 16px 48px}
 .num{font-variant-numeric:tabular-nums}
 .card{background:var(--paper);border-radius:var(--r);box-shadow:var(--shadow);padding:20px;margin-bottom:12px}
@@ -388,10 +389,12 @@ function renderEmp() {
       el("button", { type: "button", class: "pbtn in", disabled: !st.canIn || old, onclick: function () { punch("in"); }, text: st.inDone ? "출근 완료" : "출근하기" }),
       el("button", { type: "button", class: "pbtn out", disabled: !st.canOut || old, onclick: function () { punch("out"); }, text: st.outDone && !st.canOut ? "퇴근 완료" : "퇴근하기" })
     ]),
-    el("div", { class: "sub num", style: "margin-top:10px;text-align:center" , text: "오늘  출근 " + st.inTxt + " · 퇴근 " + st.outTxt }),
-    saveLine(),
-    S.stale ? el("div", { class: "note", text: "지난번 화면입니다 — 서버에서 새로 확인하는 중…" }) : null,
-    S.err ? el("div", { class: "alert", role: "alert", text: S.err }) : null
+    el("div", { class: "center" }, [
+      el("div", { class: "sub num", style: "margin-top:10px", text: "오늘 출근 " + st.inTxt + " · 퇴근 " + st.outTxt }),
+      saveLine(),
+      S.stale ? el("div", { class: "note", text: "지난번 화면입니다 — 서버에서 새로 확인하는 중…" }) : null,
+      S.err ? el("div", { class: "alert", role: "alert", text: S.err }) : null
+    ])
   ]));
   app.appendChild(el("div", { class: "card" }, [
     el("h2", { text: k.date.slice(0, 4) + "년 " + (+k.date.slice(5, 7)) + "월 기록" }),
