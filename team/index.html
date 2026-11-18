@@ -1047,7 +1047,7 @@ function evRow(e){
   const time = e.allDay ? '종일' : pad(d.getHours()) + ':' + pad(d.getMinutes());
   return '<div class="ev' + (e.mine ? ' mine' : '') + '"><span class="time">' + time + '</span><span class="bar"></span>' +
     '<div class="t"><div>' + esc(e.title) + saveFlag(e) + '</div>' + (e.mine ? '<small>내 캘린더 · 팀원에게는 안 보임</small>' : (e.location ? '<small>' + esc(e.location) + '</small>' : '')) + '</div>' +
-    (e.mine ? '' : '<button class="btn ghost icon del" data-delev="' + esc(e.id) + '" aria-label="일정 삭제: ' + esc(e.title) + '">' + icon('trash') + '</button>') + '</div>';
+    (e.mine || (e.leave && !CAN_MANAGE) ? '' : '<button class="btn ghost icon del" data-delev="' + esc(e.id) + '" aria-label="일정 삭제: ' + esc(e.title) + '">' + icon('trash') + '</button>') + '</div>';
 }
 // ───── 캘린더(2026-11-06): 팀 공유 일정·승인 휴가(팀 캘린더)·공휴일을 달로 — 자료는 업무 탭과 같은 S.events(서버가 지난 92일~앞으로 400일) ─────
 const CAL = { y: new Date().getFullYear(), m: new Date().getMonth() + 1, sel: todayStr() };
