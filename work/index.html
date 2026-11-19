@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-SmIbeeLM9FT86GuPf1yYsEogHTqE9AfVC9oVpWGvhVU='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-FFuxzD4sFcrTLm8RlZPJmG9G5z/kq9T6XMR5/aMKg/s='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -35,7 +35,7 @@ th{font-size:12px;font-weight:600;color:var(--fog);text-align:left;padding:8px 6
 td{padding:10px 6px;border-bottom:1px solid #EDF2F5;vertical-align:middle}
 th:first-child,td:first-child{padding-left:0}th:last-child,td:last-child{padding-right:0}
 td.r,th.r{text-align:right}
-td.r,td.num{white-space:nowrap}
+td.r,td.num{white-space:nowrap}td.r[data-hours]{white-space:normal}
 .emp{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--hair)}
 .emp:first-of-type{border-top:0}
 .emp .acts{display:flex;gap:6px}
@@ -147,29 +147,28 @@ function attShift(r, hol, brk) {
 /* 한 사람의 한 달 급여(참고용). rows = 그 사람 줄(앞뒤 달 포함), ym = 'yyyy-MM', five = 5인 이상(가산수당 근로기준법 제56조), brk = 휴게 빼기
    주휴(제55조·시행령 제30조): 월~일 한 주 평일 근로(하루 8시간까지) 15시간 이상 → min(그 합, 40) / 40 × 8 시간. 주휴일(일요일)이 든 달에 넣음. 개근·소정근로시간은 자료가 없어 확인 안 함
    연장 = 평일 하루 8시간 초과 + 한 주 평일 근로(하루 8시간까지) 40시간 초과, 야간 = 22~06시, 휴일 = 하루 8시간까지 50%·초과 100% — 모두 5인 이상만 */
-/* half = 한 달 근무시간을 0.5시간 단위로 올림(0.1~0.5 → 0.5, 0.6~0.9 → 1 — 거래처근무현황만, 2026-11-19 요청). 기본급만 이 시간으로 셈 */
+/* half = 하루 근무시간을 0.5시간 단위로 올려 더함(0.1~0.5 → 0.5, 0.6~0.9 → 1 — 거래처근무현황만, 2026-11-19 요청). 기본급만 이 시간으로, raw = 올리기 전 실제 합계 */
 function attendCalc(rows, ym, wage, five, brk, holidays, today, half) {
   const hol = (iso) => new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)).getDay() === 0 || !!(holidays || {})[iso];
   const sh = rows.map((r) => attShift(r, hol, brk)).sort((a, b) => (a.date < b.date ? -1 : 1));
   const inM = (iso) => iso.slice(0, 7) === ym;
   const weekEnd = (iso) => attAdd(iso, (7 - new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)).getDay()) % 7); /* 그 주 일요일 */
-  let work = 0, dayOT = 0, night = 0, hol8 = 0, holOver = 0;
+  let work = 0, raw = 0, dayOT = 0, night = 0, hol8 = 0, holOver = 0;
   const weeks = {};
   sh.forEach((x) => {
     const reg = x.work - x.holW, w = weekEnd(x.date);
     weeks[w] = (weeks[w] || 0) + Math.min(reg, 8 * 3600);
     if (!inM(x.date)) return;
-    work += x.work; night += x.night; dayOT += Math.max(0, reg - 8 * 3600);
+    work += half ? Math.ceil(Math.floor(x.work / 60) / 30) * 1800 : x.work; /* 초는 버리고 분 단위로 올림 — 30초 늦은 퇴근이 0.5시간이 되지 않게 */ raw += x.work; night += x.night; dayOT += Math.max(0, reg - 8 * 3600);
     hol8 += Math.min(x.holW, 8 * 3600); holOver += Math.max(0, x.holW - 8 * 3600);
   });
-  if (half) work = Math.ceil(work / 1800) * 1800;
   let weekOT = 0, juhu = 0;
   Object.keys(weeks).forEach((w) => { if (!inM(w)) return; weekOT += Math.max(0, weeks[w] - 40 * 3600); if (weeks[w] >= 15 * 3600) juhu += Math.min(weeks[w], 40 * 3600) / 40 * 8; });
   const pay = (sec, rate) => Math.floor(sec / 3600 * (wage || 0) * rate);
   const base = pay(work, 1), juhuWon = pay(juhu, 1);
   const otWon = five ? pay(dayOT + weekOT, 0.5) : 0, nightWon = five ? pay(night, 0.5) : 0, holWon = five ? pay(hol8, 0.5) + pay(holOver, 1) : 0;
   const extra = otWon + nightWon + holWon;
-  return { days: sh.filter((x) => inM(x.date)), work, dayOT, weekOT, night, hol8, holOver, juhu, base, juhuWon, otWon, nightWon, holWon, extra, total: base + extra + juhuWon, missing: sh.filter((x) => inM(x.date) && x.missing && !(today && x.date >= attAdd(today, -1))).length }; /* 오늘·어제 근무 중인 줄은 빠짐으로 안 셈 */
+  return { days: sh.filter((x) => inM(x.date)), work, raw, dayOT, weekOT, night, hol8, holOver, juhu, base, juhuWon, otWon, nightWon, holWon, extra, total: base + extra + juhuWon, missing: sh.filter((x) => inM(x.date) && x.missing && !(today && x.date >= attAdd(today, -1))).length }; /* 오늘·어제 근무 중인 줄은 빠짐으로 안 셈 */
 }
 var app = document.getElementById("app"), toastEl = document.getElementById("toast");
 var K_O = "cw.o", K_E = "cw.e", K_Q = "cw.q", TOKRE = /^[A-Za-z0-9]{22}$/;
@@ -538,7 +537,7 @@ function renderOwner() {
   var pay = live.concat(gone).map(function (e) {
     if (mw && e.wage && e.wage < mw) low = true;
     var r = attendCalc(v.days.filter(function (d) { return d.emp === e.id; }), S.ym, e.wage, v.five, v.brk, HOLIDAYS, today, true);
-    return el("tr", {}, [el("td", { text: e.name + (r.missing ? " · 퇴근 빠짐 " + r.missing + "일" : "") }), el("td", { class: "r num", style: mw && e.wage && e.wage < mw ? "color:var(--warn);font-weight:600" : null, text: won(e.wage) }), el("td", { class: "r num", text: attH2(r.work) + "시간" }), el("td", { class: "r num", text: won(r.total) + "원" })]);
+    return el("tr", {}, [el("td", { text: e.name + (r.missing ? " · 퇴근 빠짐 " + r.missing + "일" : "") }), el("td", { class: "r num", style: mw && e.wage && e.wage < mw ? "color:var(--warn);font-weight:600" : null, text: won(e.wage) }), el("td", { class: "r num", "data-hours": "" }, [attH2(r.work) + "시간"].concat(attH2(r.raw) !== attH2(r.work) ? [" ", el("span", { class: "sub nw", style: "font-size:12px", text: "(실제 " + attH2(r.raw) + ")" })] : [])), el("td", { class: "r num", text: won(r.total) + "원" })]);
   });
   app.appendChild(el("div", { class: "card" }, [
     el("div", { class: "ym" }, [el("button", { type: "button", class: "btn sm", "aria-label": "이전 달", onclick: function () { moveYm(-1); }, text: "‹" }), el("h2", { style: "margin:0", text: y + "년 " + m + "월" }), el("button", { type: "button", class: "btn sm", "aria-label": "다음 달", onclick: function () { moveYm(1); }, text: "›" })]),
@@ -549,7 +548,7 @@ function renderOwner() {
     el("table", {}, [el("thead", {}, [el("tr", {}, [el("th", { text: "직원" }), el("th", { class: "r", text: "시급(원)" }), el("th", { class: "r", text: "근무시간" }), el("th", { class: "r", text: "참고 급여(세전)" })])]), el("tbody", {}, pay)]),
     el("div", { class: "minw num", "data-minwage": "", style: "margin-top:12px;font-size:13.5px" }, [y + "년 최저시급 ", el("b", { text: mw ? won(mw) + "원" : "자료 없음" }), mw ? " (고용노동부 고시)" : ""]),
     low ? el("div", { class: "alert", text: "빨간 시급은 " + y + "년 최저시급보다 낮습니다. 수습 등 예외가 아니면 시급을 고쳐 주세요." }) : null,
-    el("div", { class: "note", text: "참고 계산입니다. 근무시간은 한 달 합계를 0.5시간 단위로 올립니다. 개근·소정근로시간 자료가 없어 주휴수당은 15시간 기준으로만 계산합니다." })
+    el("div", { class: "note", text: "참고 계산입니다. 근무시간은 하루마다 0.5시간 단위로 올려 더합니다(괄호 = 실제 근무시간). 개근·소정근로시간 자료가 없어 주휴수당은 15시간 기준으로만 계산합니다." })
   ]));
   /* 날짜별 기록 고치기 */
   var sel = v.emps.filter(function (e) { return e.id === S.who; })[0] || live[0] || v.emps[0];
