@@ -2206,12 +2206,12 @@ function mwSection(b){
     + '<p class="ce-err" id="mwErr" hidden></p>'
     + '<button type="button" class="mp-btn" data-mw-go>성수서버에 발급 요청</button>'
     + '<p class="mw-note">성수서버가 홈택스에서 신청·발급합니다(보통 2~5분). 소득금액증명·개인 납부내역은 대표자 주민번호가 필요해 PC 민원증명 창에서 합니다.</p>'
-    + '<h3 class="mw-h">발급 기록</h3><ul class="mw-list" id="mwList">' + mwRows(b) + '</ul></section>';
+    + '<h3 class="mw-h">발급 기록 <small style="font-weight:400;color:var(--muted)">휴대폰·PC 모두</small></h3><ul class="mw-list" id="mwList">' + mwRows(b) + '</ul></section>';
 }
 function mwRows(b){
   const L = (CL.mwList || {})[b];
   if (!L) return '<li class="empty">불러오는 중…</li>';
-  if (!L.length) return '<li class="empty">아직 휴대폰에서 요청한 발급이 없습니다.</li>';
+  if (!L.length) return '<li class="empty">아직 발급 기록이 없습니다.</li>';
   return L.map(x => '<li><div class="mw-top"><b>' + esc(x.doc || '') + '</b><span class="mw-st ' + (MW_ST[x.state] || 'run') + '">' + esc(x.state || '') + '</span></div>'
     + '<small>' + esc([x.period, nmT(x.by || ''), x.done || x.at].filter(Boolean).join(' · ')) + '</small>'
     + (x.msg && x.state !== '발급' ? '<small>' + esc(x.msg) + '</small>' : '')
@@ -2562,7 +2562,8 @@ function initMock(){
       window.__hxAsk = (window.__hxAsk || []).concat([JSON.parse(JSON.stringify(r))]);
       return { rid: rid };
     },
-    minwonList: (b, kind) => (kind === 'hxinfo' ? db.hx || [{ rid: '20261117150000456', kind: 'hxinfo', bs: '1234567890', name: '한빛상사', doc: '홈택스 정보조회', by: '대표', at: '2026-11-17 15:00', done: '2026-11-17 15:02', state: '조회 완료', msg: 'PC 대시보드가 거래처 정보에 1분 안에 반영합니다(PC 와 같은 규칙)', files: [], result: { queried: '2026-11-17 15:02', f: { '사업자상태': '계속사업자', '수임구분': '수임', '사업장관할서': '성동세무서', '개업연월일': '2019/03/02' } } }] : db.mw || [{ rid: '20261118093000123', bs: '1234567890', name: '한빛상사', doc: '부가가치세 과세표준증명', period: '2025년 1기 ~ 2025년 2기', by: '대표', at: '2026-11-18 09:30', done: '2026-11-18 09:33', state: '발급', msg: '1장 발급', files: [{ f: '20261118093000123_1.pdf', name: '부가가치세 과세표준증명_김한빛.pdf' }] }])
+    minwonList: (b, kind) => (kind === 'hxinfo' ? db.hx || [{ rid: '20261117150000456', kind: 'hxinfo', bs: '1234567890', name: '한빛상사', doc: '홈택스 정보조회', by: '대표', at: '2026-11-17 15:00', done: '2026-11-17 15:02', state: '조회 완료', msg: 'PC 대시보드가 거래처 정보에 1분 안에 반영합니다(PC 와 같은 규칙)', files: [], result: { queried: '2026-11-17 15:02', f: { '사업자상태': '계속사업자', '수임구분': '수임', '사업장관할서': '성동세무서', '개업연월일': '2019/03/02' } } }] : db.mw || [{ rid: '20261118093000123', bs: '1234567890', name: '한빛상사', doc: '부가가치세 과세표준증명', period: '2025년 1기 ~ 2025년 2기', by: '대표', at: '2026-11-18 09:30', done: '2026-11-18 09:33', state: '발급', msg: '1장 발급', files: [{ f: '20261118093000123_1.pdf', name: '부가가치세 과세표준증명_김한빛.pdf' }] },
+      { rid: 'pc20261110140000_1234567890_tax', kind: 'pc', bs: '1234567890', name: '한빛상사', doc: '납세증명서', period: '', by: 'PC 발급', at: '2026-11-10 14:00', done: '2026-11-10 14:00', state: '발급', msg: '', files: [{ f: 'pc20261110140000_1234567890_tax.pdf', name: '납세증명서_김한빛.pdf' }] }])
       .filter(x => !b || String(x.bs).slice(0, 10) === String(b).slice(0, 10)),
     minwonFile: f => ({ b64: btoa('%PDF-1.4 demo ' + f) }),
     getClients: () => db.clients ? JSON.parse(JSON.stringify(db.clients)) : [ // 데모 거래처(가짜 값)
