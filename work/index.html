@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-FFuxzD4sFcrTLm8RlZPJmG9G5z/kq9T6XMR5/aMKg/s='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-j6Jvf6lzAdWCoKNXHkHjTQZVfSojU6UUWeg6GFmYVn8='; style-src 'unsafe-inline'; img-src data:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <title>더바른 세무회계 근무 기록</title>
@@ -147,7 +147,9 @@ function attShift(r, hol, brk) {
 /* 한 사람의 한 달 급여(참고용). rows = 그 사람 줄(앞뒤 달 포함), ym = 'yyyy-MM', five = 5인 이상(가산수당 근로기준법 제56조), brk = 휴게 빼기
    주휴(제55조·시행령 제30조): 월~일 한 주 평일 근로(하루 8시간까지) 15시간 이상 → min(그 합, 40) / 40 × 8 시간. 주휴일(일요일)이 든 달에 넣음. 개근·소정근로시간은 자료가 없어 확인 안 함
    연장 = 평일 하루 8시간 초과 + 한 주 평일 근로(하루 8시간까지) 40시간 초과, 야간 = 22~06시, 휴일 = 하루 8시간까지 50%·초과 100% — 모두 5인 이상만 */
-/* half = 하루 근무시간을 0.5시간 단위로 올려 더함(0.1~0.5 → 0.5, 0.6~0.9 → 1 — 거래처근무현황만, 2026-11-19 요청). 기본급만 이 시간으로, raw = 올리기 전 실제 합계 */
+/* 하루 근무 초 → 0.5시간 단위로 올린 초. 초는 버리고 분으로, 30분 칸에서 5분 이하로 넘친 것은 버림(8시간 5분 → 8, 8시간 6분 → 8.5, 8시간 36분 → 9) */
+const attHalf = (sec) => { const m = Math.floor((sec || 0) / 60); return (Math.floor(m / 30) + (m % 30 > 5 ? 1 : 0)) * 1800; };
+/* half = 하루 근무시간을 attHalf 로 올려 더함(거래처근무현황만, 2026-11-19 요청). 기본급만 이 시간으로, raw = 올리기 전 실제 합계 */
 function attendCalc(rows, ym, wage, five, brk, holidays, today, half) {
   const hol = (iso) => new Date(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)).getDay() === 0 || !!(holidays || {})[iso];
   const sh = rows.map((r) => attShift(r, hol, brk)).sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -159,7 +161,7 @@ function attendCalc(rows, ym, wage, five, brk, holidays, today, half) {
     const reg = x.work - x.holW, w = weekEnd(x.date);
     weeks[w] = (weeks[w] || 0) + Math.min(reg, 8 * 3600);
     if (!inM(x.date)) return;
-    work += half ? Math.ceil(Math.floor(x.work / 60) / 30) * 1800 : x.work; /* 초는 버리고 분 단위로 올림 — 30초 늦은 퇴근이 0.5시간이 되지 않게 */ raw += x.work; night += x.night; dayOT += Math.max(0, reg - 8 * 3600);
+    work += half ? attHalf(x.work) : x.work; raw += x.work; night += x.night; dayOT += Math.max(0, reg - 8 * 3600);
     hol8 += Math.min(x.holW, 8 * 3600); holOver += Math.max(0, x.holW - 8 * 3600);
   });
   let weekOT = 0, juhu = 0;
@@ -548,7 +550,7 @@ function renderOwner() {
     el("table", {}, [el("thead", {}, [el("tr", {}, [el("th", { text: "직원" }), el("th", { class: "r", text: "시급(원)" }), el("th", { class: "r", text: "근무시간" }), el("th", { class: "r", text: "참고 급여(세전)" })])]), el("tbody", {}, pay)]),
     el("div", { class: "minw num", "data-minwage": "", style: "margin-top:12px;font-size:13.5px" }, [y + "년 최저시급 ", el("b", { text: mw ? won(mw) + "원" : "자료 없음" }), mw ? " (고용노동부 고시)" : ""]),
     low ? el("div", { class: "alert", text: "빨간 시급은 " + y + "년 최저시급보다 낮습니다. 수습 등 예외가 아니면 시급을 고쳐 주세요." }) : null,
-    el("div", { class: "note", text: "참고 계산입니다. 근무시간은 하루마다 0.5시간 단위로 올려 더합니다(괄호 = 실제 근무시간). 개근·소정근로시간 자료가 없어 주휴수당은 15시간 기준으로만 계산합니다." })
+    el("div", { class: "note", text: "참고 계산입니다. 근무시간은 하루마다 0.5시간 단위로 올려 더합니다(30분 단위에서 5분 이하로 넘친 것은 버림, 괄호 = 실제 근무시간). 개근·소정근로시간 자료가 없어 주휴수당은 15시간 기준으로만 계산합니다." })
   ]));
   /* 날짜별 기록 고치기 */
   var sel = v.emps.filter(function (e) { return e.id === S.who; })[0] || live[0] || v.emps[0];
