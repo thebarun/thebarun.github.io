@@ -370,6 +370,20 @@ body.has-alert .wrap{padding-bottom:150px}
 .ce-ro{margin:0;font-size:14px;color:var(--muted)}
 .ce-foot{position:sticky;bottom:-24px;display:flex;gap:8px;padding:12px 0 16px;background:var(--bg)}
 .ce-foot .mp-btn{flex:1}
+.cd-acts a,.cd-acts button{min-width:0}
+.mw-row{display:flex;gap:6px;align-items:center}.mw-row .select,.mw-row .input{flex:1;min-width:0}
+.mw-chk{display:flex;gap:8px;align-items:center;font-size:14px;margin:4px 0 12px}
+.mw-sec .mp-btn{width:100%}
+.mw-note{font-size:12px;color:var(--muted);margin:8px 0 0}
+.mw-h{margin-top:16px}
+.mw-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mw-list li{background:var(--bg);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.mw-list li.empty{background:none;padding:4px 0;color:var(--muted);font-size:13px}
+.mw-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.mw-list small{color:var(--muted);font-size:12px}
+.mw-st{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface);color:var(--primary);white-space:nowrap}
+.mw-st.ok{color:#127a4b}.mw-st.bad{color:#c0392b}.mw-st.warn{color:#9a5b00}
+.mw-file{margin-top:4px;font-size:13px}
 .ce-err{color:var(--danger);font-size:14px;font-weight:600;margin:0 4px 8px}
 /* 휴대폰 링크 전달(2026-11-13) */
 .cl-tag.link{background:var(--primary-soft);color:var(--primary)}
@@ -2146,6 +2160,103 @@ async function ceSave(btn){
     if ((CL.list || []).some(x => x.bsno === nk)) openClient(nk); else $('#clientDlg').close();
   } catch (e) { btn.disabled = false; btn.textContent = old; ceErr(errText(e) || '저장하지 못했습니다.'); }
 }
+// ───── 민원증명(2026-11-19 요청 '휴대폰에서 발급 → 성수서버가 발급 → 휴대폰에서 보기', 자료 외부 전송 예외 18번) ─────
+// 팀 서버 minwonAsk → 드라이브 데이터\민원증명_요청 → 성수서버 minwon_queue.py(1분마다, 홈택스 자동 로그인) → minwonList·minwonFile(원본 PDF 그대로).
+// PC 민원증명 창(31_민원증명 MW_DOCS·MW_USE·MW_ORG)과 같은 서식·값 — 소득금액증명·개인 납부내역·사업자등록증 재발급은 PC 에서.
+const MW_M = [['vat', '부가가치세 과세표준증명'], ['pay', '납부내역증명'], ['fs', '표준재무제표증명'], ['exempt', '면세사업자 수입금액증명'], ['tax', '납세증명서']];
+const MW_M_USE = ['입찰, 계약용', '수금용', '관공서제출용', '대출용', '여권또는비자신청용', '건강보험·국민연금공단제출용', '금융기관제출용', '신용카드발급용', '기타'];
+const MW_M_ORG = ['금융기관', '관공서', '조합/협회', '거래처', '학교', '외교부/재외공관/재외동포청', '기타'];
+const MW_M_TAX = ['전체', '종합소득세', '부가가치세', '법인세', '근로소득세(갑)', '사업소득세', '양도소득세', '종합부동산세']; // PC MW_TAXKIND 중 자주 쓰는 것
+const MW_ST = { '발급': 'ok', '실패': 'bad', '출력 확인 필요': 'warn', '접수': 'warn' };
+const mwYm = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+const mwF = () => CL.mwF || (CL.mwF = { doc: 'vat', y1: now.getFullYear() - 1, y2: now.getFullYear() - 1, k1: 1, k2: 2, m1: now.getFullYear() + '-01', m2: mwYm(now), inckind: '사업소득', taxkind: '전체', purpose: '기타 목적', use: '기타', org: '기타', rrn: false });
+function mwSel(id, list, v){
+  return '<select class="select" id="' + id + '" aria-label="' + id + '">' + list.map(x => { const val = Array.isArray(x) ? x[0] : x, t = Array.isArray(x) ? x[1] : x; return '<option value="' + esc(val) + '"' + (String(val) === String(v) ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
+}
+function mwYears(){ const Y = now.getFullYear(), a = []; for (let y = Y; y >= Y - 6; y--) a.push([y, y + '년']); return a; }
+function mwOptsHtml(F){
+  const fld = (lab, h) => '<div class="field"><span class="lbl">' + lab + '</span><div class="mw-row">' + h + '</div></div>', ki = [[1, '1기'], [2, '2기']];
+  let h = '';
+  if (F.doc === 'vat') h += fld('과세기간', mwSel('mwY1', mwYears(), F.y1) + mwSel('mwK1', ki, F.k1) + '<span>~</span>' + mwSel('mwY2', mwYears(), F.y2) + mwSel('mwK2', ki, F.k2));
+  if (F.doc === 'fs' || F.doc === 'exempt') h += fld('과세기간' + (F.doc === 'fs' ? '(해마다 한 장)' : ''), mwSel('mwY1', mwYears(), F.y1) + '<span>~</span>' + mwSel('mwY2', mwYears(), F.y2));
+  if (F.doc === 'fs') h += fld('소득구분', mwSel('mwInc', ['사업소득', '부동산임대소득'], F.inckind));
+  if (F.doc === 'pay') h += fld('수납기간', '<input class="input" type="month" id="mwM1" value="' + esc(F.m1) + '"><span>~</span><input class="input" type="month" id="mwM2" value="' + esc(F.m2) + '">') + fld('세목(신청유형 사업자)', mwSel('mwTax', MW_M_TAX, F.taxkind));
+  if (F.doc === 'tax') h += fld('신청목적', mwSel('mwPur', ['기타 목적', '대금수령 목적'], F.purpose));
+  return h;
+}
+function mwLabel(F){
+  if (F.doc === 'vat') return F.y1 + '년 ' + F.k1 + '기 ~ ' + F.y2 + '년 ' + F.k2 + '기';
+  if (F.doc === 'fs' || F.doc === 'exempt') return F.y1 === F.y2 ? F.y1 + '년' : F.y1 + '~' + F.y2 + '년';
+  if (F.doc === 'pay') return F.m1 + ' ~ ' + F.m2 + (F.taxkind !== '전체' ? ' · ' + F.taxkind : '');
+  return F.purpose;
+}
+function mwSection(b){
+  if (!(CL.mwOpen || {})[b]) return '';
+  const F = mwF();
+  return '<section class="cd-sec mw-sec" id="mwSec"><h3>민원증명 발급</h3>'
+    + '<div class="field"><label for="mwDoc">종류</label>' + mwSel('mwDoc', MW_M, F.doc) + '</div>'
+    + '<div id="mwOpts">' + mwOptsHtml(F) + '</div>'
+    + '<div class="field"><label for="mwUse">사용용도</label>' + mwSel('mwUse', MW_M_USE, F.use) + '</div>'
+    + '<div class="field"><label for="mwOrg">제출처</label>' + mwSel('mwOrg', MW_M_ORG, F.org) + '</div>'
+    + '<label class="mw-chk"><input type="checkbox" id="mwRrn"' + (F.rrn ? ' checked' : '') + '> 주민등록번호 공개</label>'
+    + '<p class="ce-err" id="mwErr" hidden></p>'
+    + '<button type="button" class="mp-btn" data-mw-go>성수서버에 발급 요청</button>'
+    + '<p class="mw-note">성수서버가 홈택스에서 신청·발급합니다(보통 2~5분). 소득금액증명·개인 납부내역은 대표자 주민번호가 필요해 PC 민원증명 창에서 합니다.</p>'
+    + '<h3 class="mw-h">발급 기록</h3><ul class="mw-list" id="mwList">' + mwRows(b) + '</ul></section>';
+}
+function mwRows(b){
+  const L = (CL.mwList || {})[b];
+  if (!L) return '<li class="empty">불러오는 중…</li>';
+  if (!L.length) return '<li class="empty">아직 휴대폰에서 요청한 발급이 없습니다.</li>';
+  return L.map(x => '<li><div class="mw-top"><b>' + esc(x.doc || '') + '</b><span class="mw-st ' + (MW_ST[x.state] || 'run') + '">' + esc(x.state || '') + '</span></div>'
+    + '<small>' + esc([x.period, nmT(x.by || ''), x.done || x.at].filter(Boolean).join(' · ')) + '</small>'
+    + (x.msg && x.state !== '발급' ? '<small>' + esc(x.msg) + '</small>' : '')
+    + (x.files || []).map(fl => '<button type="button" class="mp-btn ghost mw-file" data-mw-file="' + esc(fl.f) + '" data-mw-name="' + esc(fl.name || fl.f) + '">PDF 열기 · ' + esc(fl.name || fl.f) + '</button>').join('')
+    + '</li>').join('');
+}
+async function mwLoad(b){
+  const M = CL.mwList || (CL.mwList = {});
+  try { M[b] = (await call('minwonList', b)) || []; } catch (e) { M[b] = []; fail(e); }
+  const el = $('#mwList'); if (el && CL.cur && CL.cur.bsno === b) el.innerHTML = mwRows(b);
+  clearTimeout(CL.mwT);
+  if (M[b].some(x => x.state === '대기' || x.state === '발급 중')) CL.mwT = setTimeout(() => { if ($('#clientDlg').open && CL.cur && CL.cur.bsno === b && (CL.mwOpen || {})[b]) mwLoad(b); }, 20000); /* 끝날 때까지 20초마다 */
+}
+function mwRead(){
+  const F = mwF();
+  [['doc', 'mwDoc'], ['y1', 'mwY1'], ['y2', 'mwY2'], ['k1', 'mwK1'], ['k2', 'mwK2'], ['m1', 'mwM1'], ['m2', 'mwM2'], ['inckind', 'mwInc'], ['taxkind', 'mwTax'], ['purpose', 'mwPur'], ['use', 'mwUse'], ['org', 'mwOrg']]
+    .forEach(p => { const e = $('#' + p[1]); if (e) F[p[0]] = /^[yk][12]$/.test(p[0]) ? +e.value : e.value; });
+  const r = $('#mwRrn'); if (r) F.rrn = r.checked;
+  return F;
+}
+async function mwGo(btn){
+  const c = CL.cur; if (!c) return;
+  const F = mwRead(), err = m => { const e = $('#mwErr'); e.textContent = m; e.hidden = !m; };
+  const yr = ['vat', 'fs', 'exempt'].indexOf(F.doc) >= 0;
+  if (yr && (F.y1 > F.y2 || (F.doc === 'vat' && F.y1 === F.y2 && F.k1 > F.k2))) return err('과세기간의 시작이 끝보다 늦습니다.');
+  if (F.doc === 'pay' && (!F.m1 || !F.m2 || F.m1 > F.m2)) return err('수납기간을 확인해 주세요.');
+  const last = m => { const y = +m.slice(0, 4), mm = +m.slice(5, 7); return m.replace('-', '') + String(new Date(y, mm, 0).getDate()).padStart(2, '0'); };
+  const opts = { y1: yr ? F.y1 : null, y2: yr ? F.y2 : null, k1: F.k1, k2: F.k2, pfrom: F.doc === 'pay' ? F.m1.replace('-', '') + '01' : '', pto: F.doc === 'pay' ? last(F.m2) : '',
+    inckind: F.inckind, taxkind: F.taxkind, purpose: F.purpose, use: F.use, org: F.org, qty: 1, rrnOpen: !!F.rrn };
+  const doc = MW_M.find(d => d[0] === F.doc), label = mwLabel(F);
+  if (!confirm(clName(c) + ' — ' + doc[1] + ' (' + label + ')\n\n성수서버가 홈택스에서 신청·발급합니다. 보낼까요?')) return;
+  err(''); btn.disabled = true; const old = btn.textContent; btn.textContent = '보내는 중…';
+  try { await call('minwonAsk', { bsno: c.bsno, doc: F.doc, opts: opts, name: clName(c), label: label }); toast('성수서버에 보냈습니다 — 발급되면 아래 기록에 PDF 가 생깁니다'); await mwLoad(c.bsno); }
+  catch (e) { err(errText(e) || '보내지 못했습니다.'); }
+  btn.disabled = false; btn.textContent = old;
+}
+async function mwFile(btn){
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '받는 중…';
+  try {
+    const r = await call('minwonFile', btn.dataset.mwFile);
+    const bin = atob(r.b64), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([u8], { type: 'application/pdf' }));
+    const a = document.createElement('a'); a.href = url; a.download = btn.dataset.mwName || 'minwon.pdf'; document.body.appendChild(a); a.click(); a.remove(); /* 휴대폰 PDF 보기 앱으로 열림 */
+    window.__mwOpened = { name: a.download, size: u8.length };
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { fail(e); }
+  btn.disabled = false; btn.textContent = old;
+}
 async function loadClients(force){
   if (CL.list && !force) return renderClients();
   try {
@@ -2200,11 +2311,13 @@ function openClient(b){
     tel ? '<a href="tel:' + esc(tel.replace(/[^\d+]/g, '')) + '"><svg class="i"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>전화</a>' : '',
     '<button type="button" data-copy="' + esc(c.bsno.slice(0, 10)) + '"><svg class="i"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>사업자번호 복사</button>',
     addr ? '<button type="button" data-copy="' + esc(addr) + '"><svg class="i"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>주소 복사</button>' : '',
-    '<button type="button" data-ce-edit><svg class="i"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>수정</button>'
+    '<button type="button" data-ce-edit><svg class="i"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>수정</button>',
+    clNoBiz(c.bsno) ? '' : '<button type="button" data-mw-open aria-pressed="' + !!(CL.mwOpen || {})[b] + '"><svg class="i"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>민원증명</button>'
   ].filter(Boolean).join('');
   const secs = CL_GROUPS.map(g => { const r = g[1].map(kv).join(''); return r ? '<section class="cd-sec"><h3>' + esc(g[0]) + '</h3><dl style="margin:0">' + r + '</dl></section>' : ''; }).join('');
   $('#cdBody').innerHTML = '<div class="cd-head"><h2 id="cdName">' + esc(clName(c)) + '</h2><p>' + esc([clDash('사업자등록번호', c.bsno.slice(0, 10)), f['대표자명'], f['과세유형'], clOff(c) ? '폐업' : ''].filter(Boolean).join(' · ')) + '</p></div>'
     + '<div class="cd-acts">' + acts + '</div>'
+    + (clNoBiz(c.bsno) ? '' : mwSection(b))
     + mpSection(b)
     + (f['메모'] ? '<div class="cd-memo"><span>메모</span>' + esc(f['메모']) + '</div>' : '')
     + secs
@@ -2218,6 +2331,9 @@ document.addEventListener('toggle', e => { const d = e.target; if (d && d.matche
 $('#clList').addEventListener('click', e => { const b = e.target.closest('[data-b]'); if (b) openClient(b.dataset.b); });
 $('#clAdd').addEventListener('click', () => { CL.edit = '+'; openClient('+'); });
 $('#cdBody').addEventListener('click', async e => {
+  if (e.target.closest('[data-mw-open]') && CL.cur) { const b0 = CL.cur.bsno, O = CL.mwOpen || (CL.mwOpen = {}); O[b0] = !O[b0]; openClient(b0); if (O[b0]) { const s0 = $('#mwSec'); if (s0) s0.scrollIntoView({ block: 'start' }); mwLoad(b0); } return; }
+  const mg = e.target.closest('[data-mw-go]'); if (mg) { mwGo(mg); return; }
+  const mf = e.target.closest('[data-mw-file]'); if (mf) { mwFile(mf); return; }
   if (e.target.closest('[data-ce-edit]') && CL.cur) { CL.edit = CL.cur.bsno; openClient(CL.cur.bsno); $('#cdBody').scrollTop = 0; return; }
   if (e.target.closest('[data-ce-cancel]')) { const b0 = CL.edit; CL.edit = null; if (b0 && b0 !== '+') openClient(b0); else $('#clientDlg').close(); return; }
   const sv = e.target.closest('[data-ce-save]'); if (sv) { ceSave(sv); return; }
@@ -2238,6 +2354,7 @@ $('#cdBody').addEventListener('click', async e => {
   } catch (err) { s.disabled = false; s.textContent = '보기'; fail(err); }
 });
 $('#cdBody').addEventListener('change', e => { /* 손익 기간을 바꾸면 그 기간의 부가세 기간 칸을 다시 채움 */
+  if (e.target.closest && e.target.closest('#mwSec')) { mwRead(); if (e.target.id === 'mwDoc') $('#mwOpts').innerHTML = mwOptsHtml(mwF()); return; } /* 민원증명: 고른 값 기억(상세를 다시 그려도 그대로), 종류를 바꾸면 기간 칸만 다시 */
   if (CL.edit && CL.edit !== '+' && e.target.dataset && e.target.dataset.k === '구분' && clNoBiz(CL.edit)) { const el = $('#cdBody [data-k="사업자등록번호"]'); if (el) { el.closest('.field').hidden = !/개인/.test(e.target.value); if (!el.closest('.field').hidden) el.focus(); } return; } /* 비사업자 수정 화면: '2.개인'을 고르면 사업자번호 칸이 열림(대표·관리자) */
   if (CL.edit === '+' && e.target.dataset && e.target.dataset.k === '구분') { const nb = /비사업자/.test(e.target.value); ['사업자등록번호', '과세유형', '원천반기여부'].forEach(k => { const el = $('#cdBody [data-k="' + k + '"]'); if (el) el.closest('.field').hidden = nb; }); return; } /* 추가 화면: 비사업자면 사업자번호·과세유형·원천반기 칸을 숨김 */
   const b = CL.cur && CL.cur.bsno; if (!b) return;
@@ -2385,6 +2502,15 @@ function initMock(){
       window.__clSaved = (window.__clSaved || []).concat(JSON.parse(JSON.stringify(list)));
       return JSON.parse(JSON.stringify(cl));
     },
+    minwonAsk: r => { /* 데모: 팀 서버 minwonAsk — 받은 요청은 '대기'로 목록에 */
+      const L = db.mw || (db.mw = MOCK.minwonList()), rid = String(Date.now()).padEnd(17, '0').slice(0, 17);
+      L.unshift({ rid: rid, bs: r.bsno, name: r.name, doc: ({ vat: '부가가치세 과세표준증명', pay: '납부내역증명', fs: '표준재무제표증명', exempt: '면세사업자 수입금액증명', tax: '납세증명서' })[r.doc], period: r.label, by: BOOT.me, at: '방금', state: '대기', msg: '성수서버가 받기를 기다리는 중(보통 1~2분)', files: [] });
+      window.__mwAsk = (window.__mwAsk || []).concat([JSON.parse(JSON.stringify(r))]);
+      return { rid: rid };
+    },
+    minwonList: b => (db.mw || [{ rid: '20261118093000123', bs: '1234567890', name: '한빛상사', doc: '부가가치세 과세표준증명', period: '2025년 1기 ~ 2025년 2기', by: '대표', at: '2026-11-18 09:30', done: '2026-11-18 09:33', state: '발급', msg: '1장 발급', files: [{ f: '20261118093000123_1.pdf', name: '부가가치세 과세표준증명_김한빛.pdf' }] }])
+      .filter(x => !b || String(x.bs).slice(0, 10) === String(b).slice(0, 10)),
+    minwonFile: f => ({ b64: btoa('%PDF-1.4 demo ' + f) }),
     getClients: () => db.clients ? JSON.parse(JSON.stringify(db.clients)) : [ // 데모 거래처(가짜 값)
       { bsno:'1234567890', f:{ '상호(법인명)':'한빛상사', '대표자명':'김한빛', '과세유형':'일반', '대시보드담당':'김세무', '대표자핸드폰번호':'010-0000-0000', '월기장료':'110000', '메모':'매월 5일 자료 받음', '사업장주소(기본)':'서울 성동구 가상로 1', '홈택스아이디':'demo', '홈택스비밀번호':'demo' }, updated:Date.now() - 86400000, by:'대표' },
       { bsno:'2234567890', f:{ '상호(법인명)':'(주)바른식품', '대표자명':'이바른', '과세유형':'법인', '세무담당자':'이회계' }, updated:0, by:'' },
