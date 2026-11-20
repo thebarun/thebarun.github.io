@@ -2344,12 +2344,12 @@ function duRows(b){
   if (!L.length) return '<li class="empty">아직 휴대폰에서 요청한 조회가 없습니다.</li>';
   return moreRows('du', b, L, (x, i) => {
     const r = x.result || {}, P = r.parts || {}, it = r.items || [];
-    const part = (k, lab) => { const p = P[k]; if (!p) return ''; return '<dt>' + lab + '</dt><dd>' + (p.err ? esc(p.err) : p.n + '건' + (p.amt != null && p.n ? ' · ' + mpWon(p.amt) : '')) + '</dd>' + (p.lastErr ? '<dt></dt><dd><small>이번 조회 실패 — 전에 받은 값</small></dd>' : ''); };
+    const part = (k, lab) => { const p = P[k]; if (!p) return ''; return '<dt>' + lab + '</dt><dd>' + (p.err ? esc(p.err) : esc(p.n) + '건' + (p.amt != null && p.n ? ' · ' + mpWon(p.amt) : '')) + '</dd>' + (p.lastErr ? '<dt></dt><dd><small>이번 조회 실패 — 전에 받은 값</small></dd>' : ''); };
     return '<li><div class="mw-top"><b>고지·체납 조회</b><span class="mw-st ' + (MW_ST[x.state] || 'run') + '">' + esc(x.state || '') + '</span></div>'
       + '<small>' + esc([nmT(x.by || ''), x.done || x.at].filter(Boolean).join(' · ')) + '</small>'
       + (x.msg && !r.parts ? '<small>' + esc(x.msg) + '</small>' : '')
       + (r.parts ? '<dl class="pn-sum">' + part('notice', '고지') + part('arrears', '체납') + part('refund', '환급금') + '</dl>' : '')
-      + (x.state === '조회 완료' && r.pay ? '<button type="button" class="mp-btn pn-rep" data-du-pay="' + esc(x.rid) + '">납부 안내 링크 만들기 (' + r.pay + '건)</button>'
+      + (x.state === '조회 완료' && r.pay ? '<button type="button" class="mp-btn pn-rep" data-du-pay="' + esc(x.rid) + '">납부 안내 링크 만들기 (' + esc(r.pay) + '건)</button>'
         : r.payErr ? '<small>' + esc(r.payErr) + '</small>' : '')
       + (it.length ? '<details class="hx-res"' + (i === 0 ? ' open' : '') + '><summary>고지·체납 내역 ' + it.length + '건</summary><dl>'
         + it.map(y => '<dt>' + esc(y.k) + '</dt><dd>' + esc([y.title, mpWon(y.amt)].filter(Boolean).join(' · ')) + (y.due ? ' · <span style="white-space:nowrap">기한 ' + esc(y.due) + '</span>' : '') + '</dd>').join('') + '</dl></details>' : '')
