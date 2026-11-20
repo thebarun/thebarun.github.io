@@ -376,6 +376,7 @@ body.has-alert .wrap{padding-bottom:150px}
 .hx-res dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:8px 0 0;font-size:13px}
 .hx-res dt{color:var(--muted)}.hx-res dd{margin:0;word-break:break-all}
 .mw-row{display:flex;gap:6px;align-items:center}.mw-row .select,.mw-row .input{flex:1;min-width:0}
+.mw-row+.mw-row{margin-top:8px}.mw-to{flex:0 0 34px;font-size:13px;color:var(--muted)} /* 기간 = 부터·까지 두 줄(2026-11-20 '정렬 맞춰줘' — 한 줄 네 칸은 연도가 잘림) */
 .mw-chk{display:flex;gap:8px;align-items:center;font-size:14px;margin:4px 0 12px}
 .mw-sec .mp-btn{width:100%}
 .mw-note{font-size:12px;color:var(--muted);margin:8px 0 0}
@@ -2171,20 +2172,21 @@ const MW_M = [['vat', '부가가치세 과세표준증명'], ['pay', '납부내�
 const MW_M_USE = ['입찰, 계약용', '수금용', '관공서제출용', '대출용', '여권또는비자신청용', '건강보험·국민연금공단제출용', '금융기관제출용', '신용카드발급용', '기타'];
 const MW_M_ORG = ['금융기관', '관공서', '조합/협회', '거래처', '학교', '외교부/재외공관/재외동포청', '기타'];
 const MW_M_TAX = ['전체', '종합소득세', '부가가치세', '법인세', '근로소득세(갑)', '사업소득세', '양도소득세', '종합부동산세']; // PC MW_TAXKIND 중 자주 쓰는 것
-const MW_ST = { '발급': 'ok', '실패': 'bad', '출력 확인 필요': 'warn', '접수': 'warn' };
+const MW_ST = { '발급': 'ok', '수집 완료': 'ok', '실패': 'bad', '출력 확인 필요': 'warn', '접수': 'warn' };
 const mwYm = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 const mwF = () => CL.mwF || (CL.mwF = { doc: 'vat', y1: now.getFullYear() - 1, y2: now.getFullYear() - 1, k1: 1, k2: 2, m1: now.getFullYear() + '-01', m2: mwYm(now), inckind: '사업소득', taxkind: '전체', purpose: '기타 목적', use: '기타', org: '기타', rrn: false });
 function mwSel(id, list, v){
   return '<select class="select" id="' + id + '" aria-label="' + id + '">' + list.map(x => { const val = Array.isArray(x) ? x[0] : x, t = Array.isArray(x) ? x[1] : x; return '<option value="' + esc(val) + '"' + (String(val) === String(v) ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>';
 }
 function mwYears(){ const Y = now.getFullYear(), a = []; for (let y = Y; y >= Y - 6; y--) a.push([y, y + '년']); return a; }
+function mwRange(lab, a, b){ return '<div class="field"><span class="lbl">' + lab + '</span><div class="mw-row">' + a + '<span class="mw-to">부터</span></div><div class="mw-row">' + b + '<span class="mw-to">까지</span></div></div>'; }
 function mwOptsHtml(F){
   const fld = (lab, h) => '<div class="field"><span class="lbl">' + lab + '</span><div class="mw-row">' + h + '</div></div>', ki = [[1, '1기'], [2, '2기']];
   let h = '';
-  if (F.doc === 'vat') h += fld('과세기간', mwSel('mwY1', mwYears(), F.y1) + mwSel('mwK1', ki, F.k1) + '<span>~</span>' + mwSel('mwY2', mwYears(), F.y2) + mwSel('mwK2', ki, F.k2));
-  if (F.doc === 'fs' || F.doc === 'exempt') h += fld('과세기간' + (F.doc === 'fs' ? '(해마다 한 장)' : ''), mwSel('mwY1', mwYears(), F.y1) + '<span>~</span>' + mwSel('mwY2', mwYears(), F.y2));
+  if (F.doc === 'vat') h += mwRange('과세기간', mwSel('mwY1', mwYears(), F.y1) + mwSel('mwK1', ki, F.k1), mwSel('mwY2', mwYears(), F.y2) + mwSel('mwK2', ki, F.k2));
+  if (F.doc === 'fs' || F.doc === 'exempt') h += mwRange('과세기간' + (F.doc === 'fs' ? '(해마다 한 장)' : ''), mwSel('mwY1', mwYears(), F.y1), mwSel('mwY2', mwYears(), F.y2));
   if (F.doc === 'fs') h += fld('소득구분', mwSel('mwInc', ['사업소득', '부동산임대소득'], F.inckind));
-  if (F.doc === 'pay') h += fld('수납기간', '<input class="input" type="month" id="mwM1" value="' + esc(F.m1) + '"><span>~</span><input class="input" type="month" id="mwM2" value="' + esc(F.m2) + '">') + fld('세목(신청유형 사업자)', mwSel('mwTax', MW_M_TAX, F.taxkind));
+  if (F.doc === 'pay') h += mwRange('수납기간', '<input class="input" type="month" id="mwM1" value="' + esc(F.m1) + '">', '<input class="input" type="month" id="mwM2" value="' + esc(F.m2) + '">') + fld('세목(신청유형 사업자)', mwSel('mwTax', MW_M_TAX, F.taxkind));
   if (F.doc === 'tax') h += fld('신청목적', mwSel('mwPur', ['기타 목적', '대금수령 목적'], F.purpose));
   return h;
 }
@@ -2259,6 +2261,52 @@ async function mwFile(btn){
     window.__mwOpened = { name: a.download, size: u8.length };
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) { fail(e); }
+  btn.disabled = false; btn.textContent = old;
+}
+// ───── 손익자료 수집(2026-11-20 요청 '같은 구조로 결산및손익 자료수집 스크래핑도') ─────
+// 팀 서버 pnlAsk → 성수서버(상시_11, 같은 대기열)가 dashboard_collect.py pnl --again(PC '홈택스 손익자료 불러오기'와 같은 코드·잠금) → minwonList(b, 'pnl') 에 상태·반영 곳 수 문구만(금액은 휴대폰에 안 보냄).
+function pnF(){ const t = new Date(), m = t.getMonth(); return m ? { y: t.getFullYear(), m1: 1, m2: m } : { y: t.getFullYear() - 1, m1: 1, m2: 12 }; } /* 처음 값 = 올해 1월~지난달(1월이면 지난해 전체) */
+function pnSection(b){
+  if (!(CL.pnOpen || {})[b]) return '';
+  const F = CL.pnF || (CL.pnF = pnF()), y0 = new Date().getFullYear(), mo = Array.from({ length: 12 }, (_, i) => [i + 1, (i + 1) + '월']);
+  return '<section class="cd-sec mw-sec" id="pnSec"><h3>손익자료 수집</h3>'
+    + '<p class="mw-note" style="margin:0 0 10px">성수서버가 홈택스에서 이 거래처의 손익자료(세금계산서·카드·현금영수증 등)를 다시 수집합니다(조회만, 보통 2~5분 — PC \'홈택스 손익자료 불러오기\'와 같음). 수집되면 PC 결산 및 손익과 사장님 앱에 반영되고, 휴대폰에는 반영 결과만 보입니다.</p>'
+    + '<div class="field"><label for="pnY">연도</label>' + mwSel('pnY', [[y0, y0 + '년'], [y0 - 1, (y0 - 1) + '년']], F.y) + '</div>'
+    + mwRange('기간', mwSel('pnM1', mo, F.m1), mwSel('pnM2', mo, F.m2))
+    + '<p class="ce-err" id="pnErr" hidden></p>'
+    + '<button type="button" class="mp-btn" data-pn-go>성수서버에 수집 요청</button>'
+    + '<h3 class="mw-h">수집 기록</h3><ul class="mw-list" id="pnList">' + pnRows(b) + '</ul></section>';
+}
+function pnRows(b){
+  const L = (CL.pnList || {})[b];
+  if (!L) return '<li class="empty">불러오는 중…</li>';
+  if (!L.length) return '<li class="empty">아직 휴대폰에서 요청한 수집이 없습니다.</li>';
+  return L.map(x => '<li><div class="mw-top"><b>손익자료 수집</b><span class="mw-st ' + (MW_ST[x.state] || 'run') + '">' + esc(x.state || '') + '</span></div>'
+    + '<small>' + esc([x.period, nmT(x.by || ''), x.done || x.at].filter(Boolean).join(' · ')) + '</small>'
+    + (x.msg ? '<small>' + esc(x.msg) + '</small>' : '') + '</li>').join('');
+}
+async function pnLoad(b){
+  const M = CL.pnList || (CL.pnList = {});
+  try { M[b] = (await call('minwonList', b, 'pnl')) || []; } catch (e) { M[b] = []; fail(e); }
+  const el = $('#pnList'); if (el && CL.cur && CL.cur.bsno === b) el.innerHTML = pnRows(b);
+  clearTimeout(CL.pnT);
+  if (M[b].some(x => x.state === '대기' || x.state === '수집 중')) CL.pnT = setTimeout(() => { if ($('#clientDlg').open && CL.cur && CL.cur.bsno === b && (CL.pnOpen || {})[b]) pnLoad(b); }, 20000); /* 끝날 때까지 20초마다 */
+}
+function pnRead(){
+  const F = CL.pnF || (CL.pnF = pnF());
+  [['y', 'pnY'], ['m1', 'pnM1'], ['m2', 'pnM2']].forEach(p => { const e = $('#' + p[1]); if (e) F[p[0]] = +e.value; });
+  return F;
+}
+async function pnGo(btn){
+  const c = CL.cur; if (!c) return;
+  const F = pnRead(), t = new Date(), err = m => { const e = $('#pnErr'); e.textContent = m; e.hidden = !m; };
+  if (F.m1 > F.m2) return err('시작 달이 끝 달보다 늦습니다.');
+  if (F.y === t.getFullYear() && F.m2 > t.getMonth() + 1) return err('아직 오지 않은 달은 수집할 수 없습니다.');
+  const lab = F.y + '년 ' + (F.m1 === F.m2 ? F.m1 + '월' : F.m1 + '~' + F.m2 + '월');
+  if (!confirm(clName(c) + ' — 손익자료 수집 ' + lab + '\n\n성수서버가 홈택스에서 다시 수집합니다(조회만, 보통 2~5분). 보낼까요?')) return;
+  err(''); btn.disabled = true; const old = btn.textContent; btn.textContent = '보내는 중…';
+  try { await call('pnlAsk', { bsno: c.bsno, name: clName(c), year: F.y, m1: F.m1, m2: F.m2 }); toast('성수서버에 보냈습니다 — 수집되면 아래 기록에 결과가 생깁니다'); await pnLoad(c.bsno); }
+  catch (e) { err(errText(e) || '보내지 못했습니다.'); }
   btn.disabled = false; btn.textContent = old;
 }
 // ───── 홈택스 정보조회(2026-11-19 요청 '같은 구조로 거래처정보 홈택스 스크래핑도') ─────
@@ -2358,12 +2406,13 @@ function openClient(b){
     addr ? '<button type="button" data-copy="' + esc(addr) + '"><svg class="i"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>주소 복사</button>' : '',
     '<button type="button" data-ce-edit><svg class="i"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>수정</button>',
     clNoBiz(c.bsno) ? '' : '<button type="button" data-mw-open aria-pressed="' + !!(CL.mwOpen || {})[b] + '"><svg class="i"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>민원증명</button>',
-    clNoBiz(c.bsno) ? '' : '<button type="button" data-hx-open aria-pressed="' + !!(CL.hxOpen || {})[b] + '"><svg class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>홈택스 조회</button>'
+    clNoBiz(c.bsno) ? '' : '<button type="button" data-hx-open aria-pressed="' + !!(CL.hxOpen || {})[b] + '"><svg class="i"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>홈택스 조회</button>',
+    clNoBiz(c.bsno) ? '' : '<button type="button" data-pn-open aria-pressed="' + !!(CL.pnOpen || {})[b] + '"><svg class="i"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>손익 수집</button>'
   ].filter(Boolean).join('');
   const secs = CL_GROUPS.map(g => { const r = g[1].map(kv).join(''); return r ? '<section class="cd-sec"><h3>' + esc(g[0]) + '</h3><dl style="margin:0">' + r + '</dl></section>' : ''; }).join('');
   $('#cdBody').innerHTML = '<div class="cd-head"><h2 id="cdName">' + esc(clName(c)) + '</h2><p>' + esc([clDash('사업자등록번호', c.bsno.slice(0, 10)), f['대표자명'], f['과세유형'], clOff(c) ? '폐업' : ''].filter(Boolean).join(' · ')) + '</p></div>'
     + '<div class="cd-acts">' + acts + '</div>'
-    + (clNoBiz(c.bsno) ? '' : mwSection(b) + hxSection(b))
+    + (clNoBiz(c.bsno) ? '' : mwSection(b) + hxSection(b) + pnSection(b))
     + mpSection(b)
     + (f['메모'] ? '<div class="cd-memo"><span>메모</span>' + esc(f['메모']) + '</div>' : '')
     + secs
@@ -2381,6 +2430,8 @@ $('#cdBody').addEventListener('click', async e => {
   const mg = e.target.closest('[data-mw-go]'); if (mg) { mwGo(mg); return; }
   if (e.target.closest('[data-hx-open]') && CL.cur) { const b1 = CL.cur.bsno, H = CL.hxOpen || (CL.hxOpen = {}); H[b1] = !H[b1]; openClient(b1); if (H[b1]) { const s1 = $('#hxSec'); if (s1) s1.scrollIntoView({ block: 'start' }); hxLoad(b1); } return; }
   const hg = e.target.closest('[data-hx-go]'); if (hg) { hxGo(hg); return; }
+  if (e.target.closest('[data-pn-open]') && CL.cur) { const b2 = CL.cur.bsno, P = CL.pnOpen || (CL.pnOpen = {}); P[b2] = !P[b2]; openClient(b2); if (P[b2]) { const s2 = $('#pnSec'); if (s2) s2.scrollIntoView({ block: 'start' }); pnLoad(b2); } return; }
+  const pg = e.target.closest('[data-pn-go]'); if (pg) { pnGo(pg); return; }
   const mf = e.target.closest('[data-mw-file]'); if (mf) { mwFile(mf); return; }
   if (e.target.closest('[data-ce-edit]') && CL.cur) { CL.edit = CL.cur.bsno; openClient(CL.cur.bsno); $('#cdBody').scrollTop = 0; return; }
   if (e.target.closest('[data-ce-cancel]')) { const b0 = CL.edit; CL.edit = null; if (b0 && b0 !== '+') openClient(b0); else $('#clientDlg').close(); return; }
@@ -2402,6 +2453,7 @@ $('#cdBody').addEventListener('click', async e => {
   } catch (err) { s.disabled = false; s.textContent = '보기'; fail(err); }
 });
 $('#cdBody').addEventListener('change', e => { /* 손익 기간을 바꾸면 그 기간의 부가세 기간 칸을 다시 채움 */
+  if (e.target.closest && e.target.closest('#pnSec')) { pnRead(); return; } /* 손익 수집: 고른 기간 기억 */
   if (e.target.closest && e.target.closest('#mwSec')) { mwRead(); if (e.target.id === 'mwDoc') $('#mwOpts').innerHTML = mwOptsHtml(mwF()); return; } /* 민원증명: 고른 값 기억(상세를 다시 그려도 그대로), 종류를 바꾸면 기간 칸만 다시 */
   if (CL.edit && CL.edit !== '+' && e.target.dataset && e.target.dataset.k === '구분' && clNoBiz(CL.edit)) { const el = $('#cdBody [data-k="사업자등록번호"]'); if (el) { el.closest('.field').hidden = !/개인/.test(e.target.value); if (!el.closest('.field').hidden) el.focus(); } return; } /* 비사업자 수정 화면: '2.개인'을 고르면 사업자번호 칸이 열림(대표·관리자) */
   if (CL.edit === '+' && e.target.dataset && e.target.dataset.k === '구분') { const nb = /비사업자/.test(e.target.value); ['사업자등록번호', '과세유형', '원천반기여부'].forEach(k => { const el = $('#cdBody [data-k="' + k + '"]'); if (el) el.closest('.field').hidden = nb; }); return; } /* 추가 화면: 비사업자면 사업자번호·과세유형·원천반기 칸을 숨김 */
@@ -2562,7 +2614,13 @@ function initMock(){
       window.__hxAsk = (window.__hxAsk || []).concat([JSON.parse(JSON.stringify(r))]);
       return { rid: rid };
     },
-    minwonList: (b, kind) => (kind === 'hxinfo' ? db.hx || [{ rid: '20261117150000456', kind: 'hxinfo', bs: '1234567890', name: '한빛상사', doc: '홈택스 정보조회', by: '대표', at: '2026-11-17 15:00', done: '2026-11-17 15:02', state: '조회 완료', msg: 'PC 대시보드가 거래처 정보에 1분 안에 반영합니다(PC 와 같은 규칙)', files: [], result: { queried: '2026-11-17 15:02', f: { '사업자상태': '계속사업자', '수임구분': '수임', '사업장관할서': '성동세무서', '개업연월일': '2019/03/02' } } }] : db.mw || [{ rid: '20261118093000123', bs: '1234567890', name: '한빛상사', doc: '부가가치세 과세표준증명', period: '2025년 1기 ~ 2025년 2기', by: '대표', at: '2026-11-18 09:30', done: '2026-11-18 09:33', state: '발급', msg: '1장 발급', files: [{ f: '20261118093000123_1.pdf', name: '부가가치세 과세표준증명_김한빛.pdf' }] },
+    pnlAsk: r => { /* 데모: 팀 서버 pnlAsk */
+      const L = db.pn || (db.pn = MOCK.minwonList(null, 'pnl')), rid = String(Date.now()).padEnd(17, '0').slice(0, 17);
+      L.unshift({ rid: rid, kind: 'pnl', bs: r.bsno, name: r.name, doc: '손익자료 수집', period: r.year + '년 ' + r.m1 + '~' + r.m2 + '월', by: BOOT.me, at: '방금', state: '대기', msg: '성수서버가 받기를 기다리는 중(보통 1~2분)', files: [] });
+      window.__pnAsk = (window.__pnAsk || []).concat([JSON.parse(JSON.stringify(r))]);
+      return { rid: rid };
+    },
+    minwonList: (b, kind) => (kind === 'pnl' ? db.pn || [{ rid: '20261116100000789', kind: 'pnl', bs: '1234567890', name: '한빛상사', doc: '손익자료 수집', period: '2026년 1~10월', by: '대표', at: '2026-11-16 10:00', done: '2026-11-16 10:04', state: '수집 완료', msg: '손익자료 1곳 반영 · 사장님 앱: 성수서버가 올림', files: [] }] : kind === 'hxinfo' ? db.hx || [{ rid: '20261117150000456', kind: 'hxinfo', bs: '1234567890', name: '한빛상사', doc: '홈택스 정보조회', by: '대표', at: '2026-11-17 15:00', done: '2026-11-17 15:02', state: '조회 완료', msg: 'PC 대시보드가 거래처 정보에 1분 안에 반영합니다(PC 와 같은 규칙)', files: [], result: { queried: '2026-11-17 15:02', f: { '사업자상태': '계속사업자', '수임구분': '수임', '사업장관할서': '성동세무서', '개업연월일': '2019/03/02' } } }] : db.mw || [{ rid: '20261118093000123', bs: '1234567890', name: '한빛상사', doc: '부가가치세 과세표준증명', period: '2025년 1기 ~ 2025년 2기', by: '대표', at: '2026-11-18 09:30', done: '2026-11-18 09:33', state: '발급', msg: '1장 발급', files: [{ f: '20261118093000123_1.pdf', name: '부가가치세 과세표준증명_김한빛.pdf' }] },
       { rid: 'pc20261110140000_1234567890_tax', kind: 'pc', bs: '1234567890', name: '한빛상사', doc: '납세증명서', period: '', by: 'PC 발급', at: '2026-11-10 14:00', done: '2026-11-10 14:00', state: '발급', msg: '', files: [{ f: 'pc20261110140000_1234567890_tax.pdf', name: '납세증명서_김한빛.pdf' }] }])
       .filter(x => !b || String(x.bs).slice(0, 10) === String(b).slice(0, 10)),
     minwonFile: f => ({ b64: btoa('%PDF-1.4 demo ' + f) }),
