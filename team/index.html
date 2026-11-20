@@ -375,6 +375,7 @@ body.has-alert .wrap{padding-bottom:150px}
 .cd-srv{margin:-4px 0 12px}.cd-srv-h{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:0 0 6px 4px}
 .cd-acts button[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:#fff}.cd-acts button[aria-pressed="true"] svg.i{color:#fff}
 .mw-list li.mw-more{background:none;padding:0}.mw-more button{width:100%;padding:10px;border-radius:12px;border:1px solid var(--card-border);background:var(--surface);color:var(--primary);font-weight:600;font-size:14px} /* 기록은 최근 5건만(2026-11-20) */
+.mw-list .pn-rep{margin-top:6px}
 .pn-sum{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:4px 0 0;font-size:14px}.pn-sum dt{color:var(--muted)}.pn-sum dd{margin:0;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
 .hx-res summary{font-size:13px;font-weight:600;cursor:pointer}
 .hx-res dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:8px 0 0;font-size:13px}
@@ -2028,7 +2029,7 @@ function mpSection(b){
     body = (grpHtml || allRow ? '<h4>납부서</h4>' + grpHtml + allRow : '') + (repRow ? '<details class="mp-grp" data-grp="rep"' + (gOpen.rep ? ' open' : '') + '><summary><b>손익보고서</b><small>기간 ' + per.length + '개</small></summary>' + repRow + '</details>' : '') /* 손익보고서도 펼침 묶음(2026-11-13 요청) */ || '<p class="mp-note">보낼 내용이 없습니다.</p>';
   }
   const done = made ? '<div class="mp-done"><b>' + esc(made.what) + ' 링크를 만들었습니다</b><p>' + esc(made.text) + '</p><div class="mp-acts"><button type="button" class="mp-btn" data-mp-share>카톡 보내기</button><button type="button" class="mp-btn ghost" data-mp-copy>문구 복사</button></div></div>' : '';
-  return '<section class="cd-sec mp"><h3>보낼 수 있는 링크</h3>' + done + body + '<p class="mp-note">PC 대시보드가 수집한 내용입니다. 링크는 이 휴대폰에서 새로 암호화해 만듭니다.</p></section>';
+  return '<section class="cd-sec mp"><h3>보낼 수 있는 링크</h3>' + done + body + '<p class="mp-note">PC 대시보드·성수서버가 준비한 내용입니다. 링크는 이 휴대폰에서 새로 암호화해 만듭니다.</p></section>';
 }
 async function mpLoad(b){
   if (CL.box[b] && !CL.box[b].err) return;
@@ -2046,7 +2047,7 @@ async function mpMake(btn){
     if (kind === 'pay') { const x = box.pay[+btn.dataset.i]; url = await mpMakePay(name, [x.item], x.due); text = mpFill(x.msg, url); what = x.title || '납부 안내'; }
     else if (kind === 'fpay') { const x = box.fpay[+btn.dataset.i]; url = await mpMakePay(name, x.items, x.due); text = mpFill(x.msg, url); what = x.title || '납부 안내'; }
     else if (kind === 'payall') { const xs = box.pay.filter(x => x.ok); url = await mpMakePay(name, xs.map(x => x.item), box.payAll.due); text = mpFill(box.payAll.msg, url); what = '고지·체납 ' + xs.length + '건'; }
-    else { const sel = mpSel(b, box.rep.periods), p = box.rep.periods[sel.p], v = mpVatsOf(p)[sel.v]; url = await mpMakeReport(name, box.rep.css, v.html); text = mpFill(box.rep.msg, url, p.label); what = p.label + ' 손익보고서' + (v.label ? ' (부가세 ' + v.label + ')' : ''); }
+    else { const sel = mpSel(b, box.rep.periods), p = box.rep.periods[sel.p], v = mpVatsOf(p)[sel.v]; url = await mpMakeReport(name, p.css || box.rep.css, v.html); text = mpFill(box.rep.msg, url, p.label); what = p.label + ' 손익보고서' + (v.label ? ' (부가세 ' + v.label + ')' : ''); }
     CL.made[b] = { url: url, text: text, what: what };
     openClient(b);
   } catch (e) { btn.disabled = false; btn.textContent = old; fail(e); }
@@ -2278,7 +2279,7 @@ function pnSection(b){
   if (!(CL.pnOpen || {})[b]) return '';
   const F = CL.pnF || (CL.pnF = pnF()), y0 = new Date().getFullYear(), mo = Array.from({ length: 12 }, (_, i) => [i + 1, (i + 1) + '월']);
   return '<section class="cd-sec mw-sec" id="pnSec"><h3>손익자료 수집</h3>'
-    + '<p class="mw-note" style="margin:0 0 10px">성수서버가 홈택스에서 이 거래처의 손익자료(세금계산서·카드·현금영수증 등)를 다시 수집합니다(조회만, 보통 2~5분 — PC \'홈택스 손익자료 불러오기\'와 같음). 수집되면 PC 결산 및 손익과 사장님 앱에 반영되고, 아래 기록에 그 기간 매출·매입 합계가 보입니다(PC 와 같은 계산).</p>'
+    + '<p class="mw-note" style="margin:0 0 10px">성수서버가 홈택스에서 이 거래처의 손익자료(세금계산서·카드·현금영수증 등)를 다시 수집합니다(조회만, 보통 2~5분 — PC \'홈택스 손익자료 불러오기\'와 같음). 수집되면 PC 결산 및 손익과 사장님 앱에 반영되고, 아래 기록에 그 기간 매출·매입 합계가 보입니다(PC 와 같은 계산). [손익보고서 링크 만들기]로 그 기간 보고서 링크를 바로 만듭니다.</p>'
     + '<div class="field"><label for="pnY">연도</label>' + mwSel('pnY', [[y0, y0 + '년'], [y0 - 1, (y0 - 1) + '년']], F.y) + '</div>'
     + mwRange('기간', mwSel('pnM1', mo, F.m1), mwSel('pnM2', mo, F.m2))
     + '<p class="ce-err" id="pnErr" hidden></p>'
@@ -2291,7 +2292,9 @@ function pnRows(b){
   if (!L.length) return '<li class="empty">아직 휴대폰에서 요청한 수집이 없습니다.</li>';
   return moreRows('pn', b, L, x => '<li><div class="mw-top"><b>손익자료 수집</b><span class="mw-st ' + (MW_ST[x.state] || 'run') + '">' + esc(x.state || '') + '</span></div>'
     + '<small>' + esc([x.period, nmT(x.by || ''), x.done || x.at].filter(Boolean).join(' · ')) + '</small>'
-    + (x.msg ? '<small>' + esc(x.msg) + '</small>' : '') + pnSum(x.result && x.result.sum) + '</li>');
+    + (x.msg ? '<small>' + esc(x.msg) + '</small>' : '') + pnSum(x.result && x.result.sum)
+    + (x.state === '수집 완료' && x.result && x.result.rep ? '<button type="button" class="mp-btn pn-rep" data-pn-rep="' + esc(x.rid) + '">손익보고서 링크 만들기</button>'
+      : x.result && x.result.repErr ? '<small>손익보고서: ' + esc(x.result.repErr) + '</small>' : '') + '</li>');
 }
 function pnSum(s){ /* 그 기간 매출·매입 합계 — PC 결산 및 손익과 같은 계산(성수서버 pnl_summary.js), 2026-11-20 #959 */
   if (!s) return '';
@@ -2366,6 +2369,23 @@ async function duGo(btn){
   try { await call('duesAsk', { bsno: c.bsno, name: clName(c) }); toast('성수서버에 보냈습니다 — 조회되면 아래 기록에 결과가 생깁니다'); await duLoad(c.bsno); }
   catch (e) { err(errText(e) || '보내지 못했습니다.'); }
   btn.disabled = false; btn.textContent = old;
+}
+async function pnRep(btn){ /* 손익 수집 뒤 그 기간 손익보고서 링크(2026-11-20) — 성수서버가 PC 휴대폰 전달 준비와 같은 화면을 만들어 둠(pnlReport). '보낼 수 있는 링크 > 손익보고서' 맨 앞 기간으로 넣고 바로 만듦 */
+  const c = CL.cur; if (!c) return;
+  const b = c.bsno; btn.disabled = true; btn.textContent = '불러오는 중…';
+  try {
+    const r = await call('pnlReport', btn.dataset.pnRep);
+    if (CL.out[b] && CL.box[b] === undefined) await mpLoad(b); /* PC 가 준비한 내용도 함께 — 멘트는 PC 에서 고친 문구가 우선 */
+    const old = CL.box[b] && !CL.box[b].err ? CL.box[b] : { v: 1, name: r.name, bsno: b, pay: [], fpay: [], payAll: null };
+    const per = r.periods.map(p => Object.assign({}, p, { css: r.css, def: true }));
+    const keep = ((old.rep && old.rep.periods) || []).filter(p => !per.some(q => q.label === p.label)).map(p => Object.assign({}, p, { def: false }));
+    CL.box[b] = Object.assign({}, old, { rep: { css: (old.rep && old.rep.css) || r.css, msg: (old.rep && old.rep.msg) || r.msg, periods: per.concat(keep) } });
+    CL.out[b] = true; CL.pick[b] = { p: 0 }; (CL.grp || (CL.grp = {})).rep = true;
+    openClient(b);
+    const mk = $('#cdBody [data-mp="rep"]');
+    if (mk) await mpMake(mk);
+    const done = $('#cdBody .mp-done'); if (done) done.scrollIntoView({ block: 'center' });
+  } catch (e) { btn.disabled = false; btn.textContent = '손익보고서 링크 만들기'; fail(e); }
 }
 function srvToggle(k){ /* 성수서버 요청 패널(민원증명·홈택스 조회·손익 수집)은 한 번에 하나만 — 2026-11-20 'ui 사용성 개선'(여러 개가 아래로 쌓였음) */
   const b = CL.cur.bsno, S = { mw: CL.mwOpen || (CL.mwOpen = {}), hx: CL.hxOpen || (CL.hxOpen = {}), pn: CL.pnOpen || (CL.pnOpen = {}), du: CL.duOpen || (CL.duOpen = {}) }, on = !S[k][b];
@@ -2503,6 +2523,7 @@ $('#cdBody').addEventListener('click', async e => {
   const mg = e.target.closest('[data-mw-go]'); if (mg) { mwGo(mg); return; }
   const hg = e.target.closest('[data-hx-go]'); if (hg) { hxGo(hg); return; }
   const pg = e.target.closest('[data-pn-go]'); if (pg) { pnGo(pg); return; }
+  const pr = e.target.closest('[data-pn-rep]'); if (pr) { pnRep(pr); return; }
   const mf = e.target.closest('[data-mw-file]'); if (mf) { mwFile(mf); return; }
   if (e.target.closest('[data-ce-edit]') && CL.cur) { CL.edit = CL.cur.bsno; openClient(CL.cur.bsno); $('#cdBody').scrollTop = 0; return; }
   if (e.target.closest('[data-ce-cancel]')) { const b0 = CL.edit; CL.edit = null; if (b0 && b0 !== '+') openClient(b0); else $('#clientDlg').close(); return; }
@@ -2685,6 +2706,8 @@ function initMock(){
       window.__hxAsk = (window.__hxAsk || []).concat([JSON.parse(JSON.stringify(r))]);
       return { rid: rid };
     },
+    pnlReport: rid => { window.__pnRep = rid; return { v: 1, name: '한빛상사', bsno: '1234567890', at: Date.now(), css: '.demo{}', msg: '[더바른세무회계] 한빛상사 김한빛 대표님(처음 문구)\n\n{기간} 손익보고서\n{링크}', periods: [ /* 데모: 팀 서버 pnlReport(성수서버가 만든 기간 하나) */
+      { label: '2026년 1~10월', y: 2026, m1: 1, m2: 10, def: true, vats: [{ label: '3분기 (7~9월)', v1: 7, v2: 9, def: true, html: '<p>데모 성수서버 3분기</p>' }, { label: '손익 기간 전체 (1~10월)', v1: 1, v2: 10, def: false, html: '<p>데모 성수서버 전체</p>' }] }] }; },
     duesAsk: r => { /* 데모: 팀 서버 duesAsk */
       const L = db.du || (db.du = MOCK.minwonList(null, 'dues')), rid = String(Date.now() + L.length).padEnd(17, '0').slice(0, 17);
       L.unshift({ rid: rid, kind: 'dues', bs: r.bsno, name: r.name, doc: '고지·체납 조회', by: BOOT.me, at: '방금', state: '대기', msg: '성수서버가 받기를 기다리는 중(보통 1~2분)', files: [] });
@@ -2698,7 +2721,7 @@ function initMock(){
       return { rid: rid };
     },
     minwonList: (b, kind) => (kind === 'dues' ? db.du || [{ rid: '20261115090000321', kind: 'dues', bs: '1234567890', name: '한빛상사', doc: '고지·체납 조회', by: '대표', at: '2026-11-15 09:00', done: '2026-11-15 09:02', state: '조회 완료', msg: '고지 1건 · 체납 1건 · 환급금 0건', files: [],
-      result: { queried: '2026-11-15 09:02', parts: { notice: { n: 1, amt: 554000 }, arrears: { n: 1, amt: 120000 }, refund: { n: 0 } }, items: [{ k: '고지', title: '2025년2기 부가가치세 확정', amt: 554000, due: '2026-01-26' }, { k: '체납', title: '2025년 종합소득세', amt: 120000, due: '2025-06-02' }] } }] : kind === 'pnl' ? db.pn || [{ rid: '20261116100000789', kind: 'pnl', bs: '1234567890', name: '한빛상사', doc: '손익자료 수집', period: '2026년 1~10월', by: '대표', at: '2026-11-16 10:00', done: '2026-11-16 10:04', state: '수집 완료', msg: '손익자료 1곳 반영 · 사장님 앱: 성수서버가 올림', files: [], result: { sum: { sales: 123456789, costs: 98765432, miss: ['202610'] } } }] : kind === 'hxinfo' ? db.hx || [{ rid: '20261117150000456', kind: 'hxinfo', bs: '1234567890', name: '한빛상사', doc: '홈택스 정보조회', by: '대표', at: '2026-11-17 15:00', done: '2026-11-17 15:02', state: '조회 완료', msg: 'PC 대시보드가 거래처 정보에 1분 안에 반영합니다(PC 와 같은 규칙)', files: [], result: { queried: '2026-11-17 15:02', f: { '사업자상태': '계속사업자', '수임구분': '수임', '사업장관할서': '성동세무서', '개업연월일': '2019/03/02' } } }] : db.mw || [{ rid: '20261118093000123', bs: '1234567890', name: '한빛상사', doc: '부가가치세 과세표준증명', period: '2025년 1기 ~ 2025년 2기', by: '대표', at: '2026-11-18 09:30', done: '2026-11-18 09:33', state: '발급', msg: '1장 발급', files: [{ f: '20261118093000123_1.pdf', name: '부가가치세 과세표준증명_김한빛.pdf' }] },
+      result: { queried: '2026-11-15 09:02', parts: { notice: { n: 1, amt: 554000 }, arrears: { n: 1, amt: 120000 }, refund: { n: 0 } }, items: [{ k: '고지', title: '2025년2기 부가가치세 확정', amt: 554000, due: '2026-01-26' }, { k: '체납', title: '2025년 종합소득세', amt: 120000, due: '2025-06-02' }] } }] : kind === 'pnl' ? db.pn || [{ rid: '20261116100000789', kind: 'pnl', bs: '1234567890', name: '한빛상사', doc: '손익자료 수집', period: '2026년 1~10월', by: '대표', at: '2026-11-16 10:00', done: '2026-11-16 10:04', state: '수집 완료', msg: '손익자료 1곳 반영 · 사장님 앱: 성수서버가 올림', files: [], result: { sum: { sales: 123456789, costs: 98765432, miss: ['202610'] }, rep: 1 } }] : kind === 'hxinfo' ? db.hx || [{ rid: '20261117150000456', kind: 'hxinfo', bs: '1234567890', name: '한빛상사', doc: '홈택스 정보조회', by: '대표', at: '2026-11-17 15:00', done: '2026-11-17 15:02', state: '조회 완료', msg: 'PC 대시보드가 거래처 정보에 1분 안에 반영합니다(PC 와 같은 규칙)', files: [], result: { queried: '2026-11-17 15:02', f: { '사업자상태': '계속사업자', '수임구분': '수임', '사업장관할서': '성동세무서', '개업연월일': '2019/03/02' } } }] : db.mw || [{ rid: '20261118093000123', bs: '1234567890', name: '한빛상사', doc: '부가가치세 과세표준증명', period: '2025년 1기 ~ 2025년 2기', by: '대표', at: '2026-11-18 09:30', done: '2026-11-18 09:33', state: '발급', msg: '1장 발급', files: [{ f: '20261118093000123_1.pdf', name: '부가가치세 과세표준증명_김한빛.pdf' }] },
       { rid: 'pc20261110140000_1234567890_tax', kind: 'pc', bs: '1234567890', name: '한빛상사', doc: '납세증명서', period: '', by: 'PC 발급', at: '2026-11-10 14:00', done: '2026-11-10 14:00', state: '발급', msg: '', files: [{ f: 'pc20261110140000_1234567890_tax.pdf', name: '납세증명서_김한빛.pdf' }] }])
       .filter(x => !b || String(x.bs).slice(0, 10) === String(b).slice(0, 10)),
     minwonFile: f => ({ b64: btoa('%PDF-1.4 demo ' + f) }),
