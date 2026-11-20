@@ -336,7 +336,11 @@ const C = {
   inc: "#9C5A2E",
   ctax: "#7A4E86",
   ok: "#2E7D5B",
-  warn: "#C0392B"
+  warn: "#C0392B",
+  warnSoft: "#FDF1F0",
+  amber: "#9A5B00",
+  amberSoft: "#FFF4DD",
+  okSoft: "#EEF8F2"
 };
 const won = n => Math.round(n).toLocaleString("ko-KR");
 function todayISO() {
@@ -1881,7 +1885,7 @@ const TAXCALC = {
     let n = 0;
     for (;;) {
       const last = new Date(Date.UTC(y + n + 1, m, 0)).getUTCDate();
-      if (new Date(Date.UTC(y + n + 1, m - 1, Math.min(d, last))).toISOString().slice(0, 10) > to) return n;
+      if (new Date(d > last ? Date.UTC(y + n + 1, m - 1, last) : Date.UTC(y + n + 1, m - 1, d) - 86400000).toISOString().slice(0, 10) > to) return n;
       n++;
     }
   },
@@ -2222,14 +2226,15 @@ const calcGrid = {
 const calcTd = {
   padding: "8px 6px",
   borderBottom: `1px solid ${C.soft}`,
-  verticalAlign: "top"
+  verticalAlign: "top",
+  fontVariantNumeric: "tabular-nums"
 };
 const RateWarn = ({
   warn
 }) => !warn || !warn.length ? null : React.createElement("div", {
   role: "alert",
   style: {
-    background: "#FDF1F0",
+    background: C.warnSoft,
     border: `1px solid ${C.warn}55`,
     borderRadius: 10,
     padding: "9px 12px",
@@ -3140,7 +3145,7 @@ function BizIncomeCalc() {
       borderRadius: 10,
       fontSize: 13,
       lineHeight: 1.6,
-      background: "#FDF1F0",
+      background: C.warnSoft,
       color: C.warn,
       border: `1px solid ${C.warn}55`
     }
@@ -3450,7 +3455,7 @@ function MinWageCalc() {
       borderRadius: 10,
       fontWeight: 600,
       fontSize: 14,
-      background: r.ok ? "#EEF8F2" : "#FDF1F0",
+      background: r.ok ? C.okSoft : C.warnSoft,
       color: r.ok ? C.ok : C.warn,
       border: `1px solid ${r.ok ? C.ok : C.warn}55`
     }
@@ -3643,7 +3648,7 @@ function JuhyuCalc() {
       padding: "9px 12px",
       borderRadius: 10,
       fontSize: 13,
-      background: "#FDF1F0",
+      background: C.warnSoft,
       color: C.warn,
       border: `1px solid ${C.warn}55`,
       fontWeight: 600
@@ -3918,7 +3923,7 @@ function ProrateCalc() {
       borderRadius: 10,
       fontWeight: 600,
       fontSize: 14,
-      background: m.ok ? "#EEF8F2" : "#FDF1F0",
+      background: m.ok ? C.okSoft : C.warnSoft,
       color: m.ok ? C.ok : C.warn,
       border: `1px solid ${m.ok ? C.ok : C.warn}55`
     }
@@ -4797,7 +4802,7 @@ function YearEndCalc() {
       marginTop: 16,
       padding: "12px 16px",
       borderRadius: 12,
-      background: refund ? "#EEF8F2" : sum > 0 ? "#FDF1F0" : "#F2F6F8",
+      background: refund ? C.okSoft : sum > 0 ? C.warnSoft : "#F2F6F8",
       border: `1px solid ${refund ? C.ok : sum > 0 ? C.warn : C.line}55`,
       display: "flex",
       flexWrap: "wrap",
@@ -5151,9 +5156,9 @@ function RetireCalc() {
   }, React.createElement(MoneyIn, {
     v: s.extra,
     set: up("extra")
-  }))), bad && box(C.warn, "#FDF1F0", "재직 마지막 날이 입사일보다 빠릅니다."), r && r.warn.map(w => React.createElement(React.Fragment, {
+  }))), bad && box(C.warn, C.warnSoft, "재직 마지막 날이 입사일보다 빠릅니다."), r && r.warn.map(w => React.createElement(React.Fragment, {
     key: w
-  }, box(C.warn, "#FDF1F0", React.createElement(React.Fragment, null, React.createElement("b", null, "\u26A0 \uAE30\uC900 \uD655\uC778 \uD544\uC694"), " \u2014 ", w)))), r && !r.oneYear && box("#B45309", "#FFF8E6", React.createElement(React.Fragment, null, React.createElement("b", null, "\uACC4\uC18D\uADFC\uB85C\uAE30\uAC04 1\uB144 \uBBF8\uB9CC"), " \u2014 \uBC95\uC815 \uD1F4\uC9C1\uAE08 \uB300\uC0C1\uC774 \uC544\uB2D9\uB2C8\uB2E4(\uADFC\uD1F4\uBC95 \uC81C4\uC870 \u2460 \uB2E8\uC11C). \uC544\uB798 \uAE08\uC561\uC740 \uD68C\uC0AC \uADDC\uC815\uC73C\uB85C \uC904 \uB54C\uC758 \uCC38\uACE0\uAC12\uC785\uB2C8\uB2E4.")), r && !r.sev && !s.over && React.createElement("div", {
+  }, box(C.warn, C.warnSoft, React.createElement(React.Fragment, null, React.createElement("b", null, "\u26A0 \uAE30\uC900 \uD655\uC778 \uD544\uC694"), " \u2014 ", w)))), r && !r.oneYear && box("#B45309", "#FFF8E6", React.createElement(React.Fragment, null, React.createElement("b", null, "\uACC4\uC18D\uADFC\uB85C\uAE30\uAC04 1\uB144 \uBBF8\uB9CC"), " \u2014 \uBC95\uC815 \uD1F4\uC9C1\uAE08 \uB300\uC0C1\uC774 \uC544\uB2D9\uB2C8\uB2E4(\uADFC\uD1F4\uBC95 \uC81C4\uC870 \u2460 \uB2E8\uC11C). \uC544\uB798 \uAE08\uC561\uC740 \uD68C\uC0AC \uADDC\uC815\uC73C\uB85C \uC904 \uB54C\uC758 \uCC38\uACE0\uAC12\uC785\uB2C8\uB2E4.")), r && !r.sev && !s.over && React.createElement("div", {
     style: {
       fontSize: 13,
       color: C.sub,
