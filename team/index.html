@@ -839,6 +839,13 @@ const tokGet = () => { try { return localStorage.getItem(TOK) || ''; } catch (e)
 const tokSet = v => { try { v ? localStorage.setItem(TOK, v) : localStorage.removeItem(TOK); } catch (e) {} };
 
 function call(fn){ return callAs(fn, '', Array.prototype.slice.call(arguments, 1)); }
+/* 저장·요청을 다시 눌러도 서버가 한 번만 실행하게(2026-11-20): 실패한 뒤 같은 내용(함수+인자)을 10분 안에 다시 보내면 같은 번호(opId)를 씀 — 서버 once_ 가 이미 한 것은 다시 안 함. 성공하면 번호를 버림 */
+const ONCE = {};
+function callOnce(fn){
+  const args = Array.prototype.slice.call(arguments, 1), k = fn + '|' + JSON.stringify(args);
+  const o = ONCE[k] && Date.now() - ONCE[k].t < 600000 ? ONCE[k] : (ONCE[k] = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), t: Date.now() });
+  return callAs(fn, o.id, args).then(r => { delete ONCE[k]; return r; });
+}
 function callAs(fn, opId, args){
   const cred = fn === 'login' ? BOOT.key : BOOT.key + '|' + S.token + (opId ? '|' + opId : '');
   // 데모 전용: window.__demoFail = n 이면 저장 n번을 연결 실패로, __demoDeny 면 권한 오류로 만든다
@@ -855,6 +862,7 @@ function callAs(fn, opId, args){
 /* 팀 서버 연결 오류의 영어 원문을 한국어로(2026-11-14 — PC 대시보드 teamErrMsg 와 같은 글) */
 function errText(e){
   const m = String((e && e.message) || e || '');
+  if (/BUSY_RETRY/.test(m)) return '앞서 보낸 것을 팀 서버가 아직 처리하고 있습니다 — 잠시 뒤 목록을 확인해 주세요';
   return /networkerror|failed to fetch|load failed|http 0|connection failure/i.test(m) ? '팀 서버에 연결하지 못했습니다 — 인터넷 연결을 확인하고 잠시 뒤 다시 해 주세요' : m;
 }
 function fail(err){
@@ -2156,7 +2164,7 @@ async function ceSave(btn){
   btn.disabled = true; const old = btn.textContent; btn.textContent = '저장 중…';
   try {
     const before = new Set((CL.list || []).map(x => x.bsno));
-    const raw = await call('saveClients', [item]);
+    const raw = await callOnce('saveClients', [item]);
     if (Array.isArray(raw)) CL.list = clMapList(raw); else await loadClients(true);
     if (item.rename) { /* 서버가 옮기기를 받았는지(새 열쇠에 이전열쇠 = 옛 열쇠) — 안 받았으면 알림(그 번호에 이름 있는 거래처가 이미 있음) */
       const ok = Array.isArray(raw) && raw.some(x => String(x.bsno) === item.rename && String((x.f || {})['이전열쇠'] || '').replace(/\D/g, '') === c.bsno.replace(/\D/g, ''));
@@ -2255,7 +2263,7 @@ async function mwGo(btn){
   const doc = MW_M.find(d => d[0] === F.doc), label = mwLabel(F);
   if (!confirm(clName(c) + ' — ' + doc[1] + ' (' + label + ')\n\n성수서버가 홈택스에서 신청·발급합니다. 보낼까요?')) return;
   err(''); btn.disabled = true; const old = btn.textContent; btn.textContent = '보내는 중…';
-  try { await call('minwonAsk', { bsno: c.bsno, doc: F.doc, opts: opts, name: clName(c), label: label }); toast('성수서버에 보냈습니다 — 발급되면 아래 기록에 PDF 가 생깁니다'); await mwLoad(c.bsno); }
+  try { await callOnce('minwonAsk', { bsno: c.bsno, doc: F.doc, opts: opts, name: clName(c), label: label }); toast('성수서버에 보냈습니다 — 발급되면 아래 기록에 PDF 가 생깁니다'); await mwLoad(c.bsno); }
   catch (e) { err(errText(e) || '보내지 못했습니다.'); }
   btn.disabled = false; btn.textContent = old;
 }
@@ -2323,7 +2331,7 @@ async function pnGo(btn){
   const lab = F.y + '년 ' + (F.m1 === F.m2 ? F.m1 + '월' : F.m1 + '~' + F.m2 + '월');
   if (!confirm(clName(c) + ' — 손익자료 수집 ' + lab + '\n\n성수서버가 홈택스에서 다시 수집합니다(조회만, 보통 2~5분). 보낼까요?')) return;
   err(''); btn.disabled = true; const old = btn.textContent; btn.textContent = '보내는 중…';
-  try { await call('pnlAsk', { bsno: c.bsno, name: clName(c), year: F.y, m1: F.m1, m2: F.m2 }); toast('성수서버에 보냈습니다 — 수집되면 아래 기록에 결과가 생깁니다'); await pnLoad(c.bsno); }
+  try { await callOnce('pnlAsk', { bsno: c.bsno, name: clName(c), year: F.y, m1: F.m1, m2: F.m2 }); toast('성수서버에 보냈습니다 — 수집되면 아래 기록에 결과가 생깁니다'); await pnLoad(c.bsno); }
   catch (e) { err(errText(e) || '보내지 못했습니다.'); }
   btn.disabled = false; btn.textContent = old;
 }
@@ -2368,7 +2376,7 @@ async function duGo(btn){
   const err = m => { const e = $('#duErr'); e.textContent = m; e.hidden = !m; };
   if (!confirm(clName(c) + ' — 고지·체납 조회\n\n성수서버가 홈택스에서 조회합니다(조회만). 보낼까요?')) return;
   err(''); btn.disabled = true; const old = btn.textContent; btn.textContent = '보내는 중…';
-  try { await call('duesAsk', { bsno: c.bsno, name: clName(c) }); toast('성수서버에 보냈습니다 — 조회되면 아래 기록에 결과가 생깁니다'); await duLoad(c.bsno); }
+  try { await callOnce('duesAsk', { bsno: c.bsno, name: clName(c) }); toast('성수서버에 보냈습니다 — 조회되면 아래 기록에 결과가 생깁니다'); await duLoad(c.bsno); }
   catch (e) { err(errText(e) || '보내지 못했습니다.'); }
   btn.disabled = false; btn.textContent = old;
 }
@@ -2453,7 +2461,7 @@ async function hxGo(btn){
   const err = m => { const e = $('#hxErr'); e.textContent = m; e.hidden = !m; };
   if (!confirm(clName(c) + ' — 홈택스 정보조회\n\n성수서버가 홈택스에서 조회합니다(조회만). 보낼까요?')) return;
   err(''); btn.disabled = true; const old = btn.textContent; btn.textContent = '보내는 중…';
-  try { await call('hxinfoAsk', { bsno: c.bsno, name: clName(c) }); toast('성수서버에 보냈습니다 — 조회되면 아래 기록에 결과가 생깁니다'); await hxLoad(c.bsno); }
+  try { await callOnce('hxinfoAsk', { bsno: c.bsno, name: clName(c) }); toast('성수서버에 보냈습니다 — 조회되면 아래 기록에 결과가 생깁니다'); await hxLoad(c.bsno); }
   catch (e) { err(errText(e) || '보내지 못했습니다.'); }
   btn.disabled = false; btn.textContent = old;
 }
