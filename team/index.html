@@ -2653,7 +2653,7 @@ function renderProjects(){
     return '<li><button type="button" class="cl-row pj-row" data-p="' + esc(p.id) + '"><span class="cl-t"><b>' + esc(p.title || '(제목 없음)') + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '')
       + (due || money ? '<small>' + (due ? '<span' + (soon ? ' class="pj-warn"' : '') + '>' + esc(due) + '</span>' : '') + (due && money ? ' · ' : '') + esc(money) + '</small>' : '') + '</span>' + pjStHtml(p) + '</button></li>';
   }).join('') : '<li class="empty">' + (list.length ? '해당하는 프로젝트가 없습니다.' : 'PC 대시보드 프로젝트 메뉴에서 등록하면 여기에 보입니다.') + '</li>';
-  $('#pjNote').textContent = '보기 전용입니다. 등록·수정은 PC 대시보드 프로젝트 메뉴에서 합니다.' + (PJ.at ? ' PC 에서 마지막으로 받은 때 ' + pjWhen(PJ.at) + '.' : '') + (PJ.skip ? ' ' + PJ.skip + '건은 주민번호 모양의 숫자가 있거나 너무 커서 빠졌습니다(PC 에서 확인).' : '');
+  $('#pjNote').textContent = '보기 전용입니다. 등록·수정은 PC 대시보드 프로젝트 메뉴에서 합니다.' + (PJ.at ? ' 마지막으로 받은 때 ' + pjWhen(PJ.at) + '.' : '') + (PJ.skip ? ' ' + PJ.skip + '건은 주민번호 모양의 숫자가 있거나 너무 커서 빠졌습니다(PC 에서 확인).' : '');
 }
 function openProject(id){
   const p = (PJ.list || []).filter(x => String(x.id) === String(id))[0]; if (!p) return;
