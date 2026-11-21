@@ -66,11 +66,12 @@ svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .home-row .t small{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .home-row>svg.i{color:var(--faint);width:16px;height:16px}
 .home-empty{margin:0;padding:14px 0 4px;font-size:14px;color:var(--muted)}
-.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:112px;padding:16px;border:0;border-radius:var(--radius);background:var(--surface);text-align:left}
-.tile .ic{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;margin-bottom:10px}
-.tile b{font-size:16px;font-weight:700}
-.tile small{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* 바로가기 = 한 줄에 작은 칸 4개(2026-11-21 대표님 요청 — 2줄 큰 칸이 내 업무를 아래로 밀었음). 칸이 좁아 이름·아래 글자는 짧게 */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0;padding:14px 4px 12px;border:0;border-radius:16px;background:var(--surface);text-align:center}
+.tile .ic{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;margin-bottom:6px}
+.tile b{font-size:13px;font-weight:700;white-space:nowrap}
+.tile small{max-width:100%;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile small.hot{color:var(--danger);font-weight:600}
 .tile:active,.menu-row:active,.home-row:active{background:var(--surface-2)}
 /* 전체(메뉴) */
@@ -548,10 +549,10 @@ body[data-cur="calc"] .wrap{padding-bottom:0}
     <p class="home-who"><b id="today"></b> · <span id="title">팀 대시보드</span></p>
     <!-- 바로가기 4칸은 홈 맨 위(2026-11-21 대표님 요청 — 처음엔 맨 아래였음) -->
     <nav class="tiles" aria-label="바로가기">
-      <button type="button" class="tile" data-view="proj"><span class="ic teal"><svg class="i"><use href="#i-brief"/></svg></span><b>프로젝트</b><small id="hPj">건별 수임 용역</small></button>
+      <button type="button" class="tile" data-view="proj"><span class="ic teal"><svg class="i"><use href="#i-brief"/></svg></span><b>프로젝트</b><small id="hPj">수임 용역</small></button>
       <button type="button" class="tile" data-view="memo"><span class="ic orange"><svg class="i"><use href="#i-note"/></svg></span><b>메모</b><small><span id="sMemo">–</span>개</small></button>
       <button type="button" class="tile" data-view="leave"><span class="ic green"><svg class="i"><use href="#i-cal"/></svg></span><b>휴가</b><small id="hLv">신청·내역</small></button>
-      <button type="button" class="tile" data-view="calc"><span class="ic teal"><svg class="i"><use href="#i-calc"/></svg></span><b>세무 계산기</b><small>세금 계산</small></button>
+      <button type="button" class="tile" data-view="calc"><span class="ic teal"><svg class="i"><use href="#i-calc"/></svg></span><b>계산기</b><small>세금 계산</small></button>
     </nav>
     <section class="card" aria-labelledby="hHomeTasks">
       <div class="card-head"><h2 id="hHomeTasks">내 업무</h2><div class="right"><button type="button" class="more-link" data-view="work">전체 보기<svg class="i"><use href="#i-chev"/></svg></button></div></div>
@@ -1956,7 +1957,7 @@ function renderLeave(){
   const L = LV.d, waiting = L && L.boss ? L.list.filter(x => x.status === '신청').length : 0;
   $('#nLeave').hidden = !waiting; $('#nLeave').textContent = waiting || ''; $('#nMore').hidden = !waiting;
   const hl = L ? leaveRow(L.me) : null; /* 홈 휴가 칸: 승인 대기(대표·관리자) → 남은 연차 → 기본 글 */
-  $('#hLv').textContent = waiting ? '승인 대기 ' + waiting + '건' : hl && hl.left != null && LV.year === new Date().getFullYear() ? '남은 연차 ' + fmtDays(hl.left) : '신청·내역'; $('#hLv').classList.toggle('hot', !!waiting);
+  $('#hLv').textContent = waiting ? '대기 ' + waiting + '건' : hl && hl.left != null && LV.year === new Date().getFullYear() ? '남은 ' + fmtDays(hl.left) : '신청·내역'; $('#hLv').classList.toggle('hot', !!waiting);
   $('#lvAdd').disabled = !L || LV.busy;
   $('#lvState').textContent = !L || LV.fresh ? '' : LV.err ? '저장본' : '저장본, 새로 받는 중…';
   if (!L) {
@@ -2731,7 +2732,7 @@ async function loadProjects(force, quiet){ /* quiet = 홈의 건수 칸을 채�
 function renderProjects(){
   const list = PJ.list || [], q = PJ.q.trim().toLowerCase();
   const act = list.filter(PJ_F[0][2]).length, soon = list.filter(PJ_F[2][2]).length; /* 홈 프로젝트 칸 */
-  $('#hPj').textContent = '진행 ' + act + '건' + (soon ? ' · 마감 임박 ' + soon : ''); $('#hPj').classList.toggle('hot', soon > 0);
+  $('#hPj').textContent = soon ? '임박 ' + soon + '건' : '진행 ' + act + '건'; $('#hPj').classList.toggle('hot', soon > 0); /* 좁은 칸: 7일 안 마감·지남이 있으면 그 건수(빨강), 없으면 진행 건수 */
   $('#pjChips').innerHTML = PJ_F.map(f => '<button class="chip" data-f="' + f[0] + '" aria-pressed="' + (PJ.f === f[0]) + '">' + f[1] + ' <span class="n">' + list.filter(f[2]).length + '</span></button>').join('');
   const fn = (PJ_F.filter(f => f[0] === PJ.f)[0] || PJ_F[0])[2];
   const rows = list.filter(p => fn(p) && (!q || [p.title, p.client, p.ptype, p.note].some(v => String(v || '').toLowerCase().indexOf(q) >= 0)))
