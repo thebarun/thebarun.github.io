@@ -261,7 +261,7 @@ body.has-alert .wrap{padding-bottom:150px}
 .cal-grid .dots i{width:6px;height:6px;border-radius:50%;background:var(--primary)}
 .cal-grid .dots i.mine{background:var(--accent)}
 .cal-grid .dots small{font-size:10px;color:var(--muted);line-height:1}
-@media(max-width:430px){.view-tabs{gap:0}.view-tabs button{padding:0 9px!important}.view-tabs button svg{display:none}} /* 탭 4개(캘린더 추가)가 휴대폰 폭에 들어가게 */
+@media(max-width:430px){.view-tabs{gap:0}.view-tabs button{padding:0 7px!important}.view-tabs button svg{display:none}} /* 탭 4개(캘린더 추가)가 휴대폰 폭에 들어가게 */
 .view-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:-6px 0 18px}
 .view-tabs button{height:44px;padding:0 16px;border:0;background:transparent;border-bottom:3px solid transparent;margin-bottom:-1px;font-size:15px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
 .view-tabs button[aria-selected="true"]{color:var(--primary);border-bottom-color:var(--primary)}
@@ -338,6 +338,18 @@ body.has-alert .wrap{padding-bottom:150px}
 .cl-t small{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .cl-tag{flex:none;font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--surface-2);color:var(--muted)}
 .cl-tag.warn{background:var(--danger-soft);color:var(--danger)}
+.pj-row .cl-t small+small{margin-top:2px;white-space:normal}
+.pj-st{flex:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;white-space:nowrap}
+.pj-st i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.pj-warn{color:var(--danger);font-weight:600}
+.pj-task{display:flex;gap:8px;padding:9px 0;border-top:1px solid var(--border);font-size:15px}
+.pj-task:first-of-type{border-top:0}
+.pj-task.done{color:var(--muted)}
+.pj-task small{color:var(--muted);font-size:12px}
+.pj-log{list-style:none;margin:0;padding:0}
+.pj-log li{padding:10px 0;border-top:1px solid var(--border);font-size:14px;word-break:break-word;white-space:pre-wrap}
+.pj-log li:first-child{border-top:0}
+.pj-log small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
 .cl-sheet{width:min(560px,100vw);max-width:100vw;max-height:88vh;border-radius:20px;background:var(--bg)}
 .cl-sheet[open]{display:flex;flex-direction:column}
 .cd-top{display:flex;justify-content:flex-end;padding:8px 8px 0;background:var(--bg)}
@@ -490,6 +502,7 @@ body.has-alert .wrap{padding-bottom:150px}
   <nav class="view-tabs" id="viewTabs" role="tablist" aria-label="화면">
     <button role="tab" data-view="work" aria-selected="true"><svg class="i"><use href="#i-list"/></svg>업무</button>
     <button role="tab" data-view="clients" aria-selected="false"><svg class="i"><use href="#i-users"/></svg>거래처</button>
+    <button role="tab" data-view="proj" aria-selected="false"><svg class="i"><use href="#i-list"/></svg>프로젝트</button>
     <button role="tab" data-view="cal" aria-selected="false"><svg class="i"><use href="#i-cal"/></svg>캘린더</button>
     <button role="tab" data-view="calc" aria-selected="false"><svg class="i"><use href="#i-list"/></svg>계산기</button>
     <button role="tab" data-view="leave" aria-selected="false"><svg class="i"><use href="#i-cal"/></svg>휴가<span class="n" id="nLeave" aria-label="승인 대기" hidden></span></button>
@@ -563,6 +576,18 @@ body.has-alert .wrap{padding-bottom:150px}
     <div class="cl-chips" id="clChips" role="group" aria-label="담당자"></div>
     <div class="cl-addrow"><p class="cl-count" id="clCount"></p><button type="button" class="cl-add" id="clAdd">+ 거래처 추가</button></div>
     <ul class="cl-list" id="clList"><li class="skel"></li><li class="skel"></li><li class="skel"></li></ul>
+  </div>
+
+  <!-- 프로젝트(2026-11-21 대표님 요청): PC 대시보드 '프로젝트'(건별 수임 용역)를 보기만 — PC 가 팀 서버에 보낸 사본(prjList). 등록·수정은 PC 에서 -->
+  <div id="projView" hidden>
+    <div class="cl-search">
+      <svg class="i" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="pjQ" type="search" placeholder="프로젝트·의뢰인 검색" aria-label="프로젝트 검색" autocomplete="off" enterkeyhint="search">
+    </div>
+    <div class="cl-chips" id="pjChips" role="group" aria-label="프로젝트 거르기"></div>
+    <p class="cl-count" id="pjCount"></p>
+    <ul class="cl-list" id="pjList"><li class="skel"></li><li class="skel"></li><li class="skel"></li></ul>
+    <p class="space-desc" id="pjNote" style="margin:10px 4px 0"></p>
   </div>
 
   <div id="calView" class="grid" hidden>
@@ -754,6 +779,11 @@ body.has-alert .wrap{padding-bottom:150px}
 <dialog id="clientDlg" class="cl-sheet" aria-labelledby="cdName">
   <div class="cd-top"><button type="button" class="dlg-x" data-close aria-label="닫기">✕</button></div>
   <div class="cd-body" id="cdBody"></div>
+</dialog>
+
+<dialog id="projDlg" class="cl-sheet" aria-labelledby="pjName">
+  <div class="cd-top"><button type="button" class="dlg-x" data-close aria-label="닫기">✕</button></div>
+  <div class="cd-body" id="pjBody"></div>
 </dialog>
 
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1551,7 +1581,7 @@ $('#calDay').addEventListener('click', onDelEvent);
 
 // 공통
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
-$('#refreshBtn').addEventListener('click', () => { if (S.view === 'leave') loadLeave(false); else if (S.view === 'clients') loadClients(true); else load(false); });
+$('#refreshBtn').addEventListener('click', () => { if (S.view === 'leave') loadLeave(false); else if (S.view === 'clients') loadClients(true); else if (S.view === 'proj') loadProjects(true); else load(false); });
 // 30초마다, 그리고 이 창으로 돌아올 때 조용히 새로고침 (편집 중이 아닐 때)
 const quietLoad = () => {
   if (document.visibilityState === 'visible' && !document.querySelector('dialog[open]') && !activeOps() && S.token && S.view === 'work') load(true);
@@ -2584,6 +2614,67 @@ $('#cdBody').addEventListener('change', e => { /* 손익 기간을 바꾸면 그
 });
 $('#clientDlg').addEventListener('close', () => { CL.cur = null; CL.edit = null; });
 
+// ───── 프로젝트(2026-11-21 대표님 요청) — PC 대시보드 '프로젝트'(건별 수임 용역)를 보기만. PC 가 팀 서버에 보낸 사본(prjList)이라 등록·수정은 PC 에서.
+//       상태·청구 합계·입금·마감 계산은 PC 화면(41_프로젝트.jsx 의 prjTotal·prjPaid·prjSoon·prjUnpaid·prjNoInv)과 같게 ─────
+const PJ = { list: null, at: 0, got: 0, q: '', f: 'active' };
+const PJ_ST = { lead: ['상담·견적', '#8A99A6'], open: ['수임', '#2F5D8C'], docs: ['자료 수집', '#9C6A2E'], work: ['검토·작성', '#1E6E8E'], filed: ['신고·제출', '#7A4E86'], closed: ['종결', '#2E7D5B'], hold: ['보류', '#9AA5AD'] };
+const PJ_LOG = { note: '기록', create: '등록', status: '상태', task: '단계', people: '담당', money: '청구', edit: '수정' };
+const pjNum = v => parseInt(String(v || '').replace(/[^\d]/g, ''), 10) || 0;
+const pjTotal = p => { const s = pjNum(p.fee); return p.vat === false ? s : s + Math.round(s / 10); };
+const pjPaid = p => { const t = pjTotal(p), a = pjNum(p.paidAmt); return !t ? 'nofee' : a >= t ? 'paid' : a > 0 ? 'part' : 'unpaid'; };
+const pjActive = p => p.status !== 'closed' && p.status !== 'hold';
+const pjDday = iso => { const a = String(iso || '').split('-').map(Number), n = new Date(); return a.length === 3 ? Math.round((new Date(a[0], a[1] - 1, a[2]) - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 86400000) : null; };
+const pjDdayTxt = p => { const d = pjActive(p) && p.due ? pjDday(p.due) : null; return d === null ? '' : d > 0 ? 'D-' + d : d === 0 ? '오늘' : -d + '일 지남'; };
+const pjDate = iso => !iso ? '' : +iso.slice(0, 4) !== new Date().getFullYear() ? iso.slice(2, 4) + '.' + (+iso.slice(5, 7)) + '.' + (+iso.slice(8, 10)) : (+iso.slice(5, 7)) + '/' + (+iso.slice(8, 10));
+const pjWhen = t => { const d = new Date(t), p = n => String(n).padStart(2, '0'); return isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); };
+const pjMoney = p => { const t = pjTotal(p), k = pjPaid(p); return k === 'nofee' ? '' : k === 'paid' ? '입금 완료 ' + mpWon(t) : k === 'part' ? '일부 입금 ' + mpWon(pjNum(p.paidAmt)) + ' / ' + mpWon(t) : '미입금 ' + mpWon(t); };
+const pjMine = p => p.lead === S.me || (p.team || []).indexOf(S.me) >= 0;
+const PJ_F = [['active', '진행 중', p => p.status !== 'closed'], ['mine', '내 프로젝트', p => p.status !== 'closed' && pjMine(p)],
+  ['soon', '7일 안 마감·지남', p => pjActive(p) && !!p.due && pjDday(p.due) <= 7], ['unpaid', '미입금', p => p.status !== 'closed' && p.status !== 'lead' && ['unpaid', 'part'].indexOf(pjPaid(p)) >= 0],
+  ['noinv', '계산서 미발행', p => p.status !== 'closed' && p.status !== 'lead' && pjTotal(p) > 0 && !p.invAt], /* 미입금·미발행 = PC 기본 화면처럼 종결 건은 빼고 셈 */ ['closed', '보관함(종결)', p => p.status === 'closed'], ['all', '전체', () => true]];
+const pjStHtml = p => { const st = PJ_ST[p.status] || PJ_ST.open; return '<span class="pj-st" style="color:' + st[1] + '"><i></i>' + st[0] + '</span>'; };
+async function loadProjects(force){
+  if (PJ.list) renderProjects();
+  if (PJ.list && !force) return;
+  try { const r = await call('prjList'); PJ.list = (r && r.list) || []; PJ.at = (r && r.at) || 0; PJ.skip = (r && r.skipped) || 0; PJ.got = Date.now(); renderProjects(); }
+  catch (e) { if (!PJ.list) $('#pjList').innerHTML = '<li class="empty">프로젝트를 불러오지 못했습니다. 새로고침을 눌러 주세요.</li>'; fail(e); }
+}
+function renderProjects(){
+  const list = PJ.list || [], q = PJ.q.trim().toLowerCase();
+  $('#pjChips').innerHTML = PJ_F.map(f => '<button class="chip" data-f="' + f[0] + '" aria-pressed="' + (PJ.f === f[0]) + '">' + f[1] + ' <span class="n">' + list.filter(f[2]).length + '</span></button>').join('');
+  const fn = (PJ_F.filter(f => f[0] === PJ.f)[0] || PJ_F[0])[2];
+  const rows = list.filter(p => fn(p) && (!q || [p.title, p.client, p.ptype, p.note].some(v => String(v || '').toLowerCase().indexOf(q) >= 0)))
+    .sort((a, b) => { const ac = a.status === 'closed', bc = b.status === 'closed'; /* PC 목록과 같은 순서: 종결은 뒤(종결일 최근 순), 나머지는 마감 빠른 순 */
+      return ac !== bc ? (ac ? 1 : -1) : ac ? String(b.doneAt || '').localeCompare(String(a.doneAt || '')) : String(a.due || '9999').localeCompare(String(b.due || '9999')) || String(b.recv || '').localeCompare(String(a.recv || '')); });
+  $('#pjCount').textContent = '프로젝트 ' + rows.length + '건' + (rows.length !== list.length ? ' · 전체 ' + list.length + '건' : '');
+  $('#pjList').innerHTML = rows.length ? rows.map(p => {
+    const sub = [p.client, p.ptype, p.lead ? nmT(p.lead) : ''].filter(Boolean).join(' · '), dd = pjDdayTxt(p), money = pjMoney(p);
+    const due = p.due ? '마감 ' + pjDate(p.due) + (dd ? ' · ' + dd : '') : '', soon = dd && pjDday(p.due) <= 7;
+    return '<li><button type="button" class="cl-row pj-row" data-p="' + esc(p.id) + '"><span class="cl-t"><b>' + esc(p.title || '(제목 없음)') + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '')
+      + (due || money ? '<small>' + (due ? '<span' + (soon ? ' class="pj-warn"' : '') + '>' + esc(due) + '</span>' : '') + (due && money ? ' · ' : '') + esc(money) + '</small>' : '') + '</span>' + pjStHtml(p) + '</button></li>';
+  }).join('') : '<li class="empty">' + (list.length ? '해당하는 프로젝트가 없습니다.' : 'PC 대시보드 프로젝트 메뉴에서 등록하면 여기에 보입니다.') + '</li>';
+  $('#pjNote').textContent = '보기 전용입니다. 등록·수정은 PC 대시보드 프로젝트 메뉴에서 합니다.' + (PJ.at ? ' PC 에서 마지막으로 받은 때 ' + pjWhen(PJ.at) + '.' : '') + (PJ.skip ? ' ' + PJ.skip + '건은 주민번호 모양의 숫자가 있거나 너무 커서 빠졌습니다(PC 에서 확인).' : '');
+}
+function openProject(id){
+  const p = (PJ.list || []).filter(x => String(x.id) === String(id))[0]; if (!p) return;
+  const kv = (k, v) => v ? '<div class="cd-kv"><dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd></div>' : '';
+  const sec = (t, body) => body ? '<section class="cd-sec"><h3>' + esc(t) + '</h3>' + body + '</section>' : '';
+  const team = (p.team || []).filter(n => n && n !== p.lead).map(nmT).join(', '), tot = pjTotal(p), dd = pjDdayTxt(p);
+  const pays = Array.isArray(p.pays) && p.pays.length ? p.pays : (pjNum(p.paidAmt) ? [{ amt: p.paidAmt, at: p.paidAt }] : []);
+  const tasks = p.tasks || [], logs = p.logs || [];
+  $('#pjBody').innerHTML = '<div class="cd-head"><h2 id="pjName">' + esc(p.title || '(제목 없음)') + '</h2><p>' + pjStHtml(p) + (p.client ? ' · ' + esc(p.client) : '') + '</p></div>'
+    + sec('기본', '<dl style="margin:0">' + kv('용역 종류', p.ptype) + kv('책임자', p.lead ? nmT(p.lead) : '') + kv('참여자', team) + kv('업무수임일', p.recv) + kv('마감기한', p.due ? p.due + (dd ? ' (' + dd + ')' : '') : '') + kv('종결일', p.status === 'closed' ? p.doneAt : '') + '</dl>')
+    + sec('수수료', tot ? '<dl style="margin:0">' + kv('공급가액', mpWon(pjNum(p.fee))) + kv('청구 합계', mpWon(tot) + (p.vat === false ? ' (부가세 없음)' : ' (부가세 포함)')) + kv('입금', { nofee: '', paid: '입금 완료', part: '일부 입금', unpaid: '미입금' }[pjPaid(p)]) + kv('받은 금액', pjNum(p.paidAmt) ? mpWon(pjNum(p.paidAmt)) : '') + kv('남은 금액', tot > pjNum(p.paidAmt) ? mpWon(tot - pjNum(p.paidAmt)) : '')
+      + pays.map(x => kv('· ' + (x.at || '날짜 없음'), mpWon(pjNum(x.amt)))).join('') + kv('계산서·증빙', p.invAt ? (p.invKind || '세금계산서') + ' ' + p.invAt : '미발행') + '</dl>' : '')
+    + (p.note ? '<div class="cd-memo"><span>메모</span>' + esc(p.note) + '</div>' : '')
+    + sec('진행 단계 ' + tasks.filter(t => t.done).length + '/' + tasks.length, tasks.map(t => '<div class="pj-task' + (t.done ? ' done' : '') + '"><span aria-hidden="true">' + (t.done ? '✓' : '○') + '</span><span>' + esc(t.text) + (t.done && t.by ? ' <small>' + esc(nmT(t.by)) + '</small>' : '') + '</span></div>').join(''))
+    + sec('진행 기록', logs.length ? '<ul class="pj-log">' + logs.map(l => '<li><small>' + esc([PJ_LOG[l.kind] || '수정', nmT(l.who || ''), pjWhen(l.t)].filter(Boolean).join(' · ')) + '</small>' + esc(l.text) + '</li>').join('') + '</ul>' : '');
+  const d = $('#projDlg'); if (!d.open) d.showModal(); $('#pjBody').scrollTop = 0;
+}
+$('#pjQ').addEventListener('input', e => { PJ.q = e.target.value; renderProjects(); });
+$('#pjChips').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (!b) return; PJ.f = b.dataset.f; renderProjects(); });
+$('#pjList').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b) openProject(b.dataset.p); });
+
 $('#viewTabs').addEventListener('click', e => {
   const b = e.target.closest('[data-view]'); if (!b) return;
   S.view = b.dataset.view;
@@ -2594,7 +2685,9 @@ $('#viewTabs').addEventListener('click', e => {
   $('#membersView').hidden = S.view !== 'members';
   $('#calcView').hidden = S.view !== 'calc';
   $('#clientView').hidden = S.view !== 'clients';
+  $('#projView').hidden = S.view !== 'proj';
   if (S.view === 'clients') { loadClients(false); return; }
+  if (S.view === 'proj') { loadProjects(Date.now() - PJ.got > 60000); return; } /* 1분 넘었으면 다시 받음 */
   if (S.view === 'calc') { const f = $('#calcFrame'); if (!f.getAttribute('src')) f.src = f.dataset.src; return; } // 계산기는 팀 자료를 안 읽음
   if (S.view === 'members') loadMembers(); else if (S.view === 'leave') loadLeave(false); else load(true);
 });
@@ -2762,6 +2855,15 @@ function initMock(){
       { bsno:'2234567890', f:{ '상호(법인명)':'(주)바른식품', '대표자명':'이바른', '과세유형':'법인', '세무담당자':'이회계' }, updated:0, by:'' },
       { bsno:'3234567890', f:{ '상호(법인명)':'예전가게', '대표자명':'박예전', '과세유형':'간이', '세무담당자':'김세무', '폐업연월일':'2025-12-31' }, updated:0, by:'' }
     ],
+    prjList: () => { /* 데모 프로젝트(가짜 값) — 날짜는 오늘 기준 */
+      const iso = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
+      return { at: Date.now() - 600000, list: [
+        { id: 'p1', title: '한빛상사 법인세 세무조정', client: '한빛상사', ptype: '법인세 세무조정', status: 'work', recv: iso(-20), due: iso(5), lead: MEMBERS[1], team: [MEMBERS[2]], fee: '2000000', vat: true, paidAmt: '1000000', paidAt: iso(-10), pays: [{ amt: '1000000', at: iso(-10) }], invKind: '세금계산서', invAt: iso(-10), note: '가결산 자료 수령',
+          tasks: [{ id: 't1', text: '결산 자료 요청', done: true, by: MEMBERS[1] }, { id: 't2', text: '세무조정 계산서 작성', done: false }], logs: [{ who: MEMBERS[1], t: Date.now() - 86400000, kind: 'note', text: '원장 수령, 조정 시작' }, { who: MEMBERS[0], t: Date.now() - 20 * 86400000, kind: 'create', text: '프로젝트 등록' }] },
+        { id: 'p2', title: '김상속 상속세 신고', client: '김상속', ptype: '상속세', status: 'docs', recv: iso(-40), due: iso(-2), lead: MEMBERS[0], team: [], fee: '5000000', vat: true, paidAmt: '', invAt: '', note: '', tasks: [], logs: [] },
+        { id: 'p3', title: '가나테크 비상장주식 평가', client: '가나테크', ptype: '비상장주식 평가', status: 'lead', recv: iso(-3), due: iso(40), lead: MEMBERS[2], team: [], fee: '', vat: true, paidAmt: '', invAt: '', tasks: [], logs: [] },
+        { id: 'p4', title: '박증여 증여세 신고', client: '박증여', ptype: '증여세', status: 'closed', doneAt: iso(-15), recv: iso(-60), due: iso(-20), lead: MEMBERS[1], team: [], fee: '1000000', vat: false, paidAmt: '1000000', paidAt: iso(-16), invKind: '현금영수증', invAt: iso(-16), tasks: [], logs: [] }] };
+    },
     mobileOutboxList: () => [{ key: '1234567890', name: '한빛상사', pay: 2, rep: 2, at: Date.now() }],
     mobileOutbox: () => ({ v: 1, name: '한빛상사', bsno: '1234567890', pay: [
       { id: 'a', kind: '국세 고지', title: '2026년 1기 부가가치세', due: d(10), ok: true, item: { title: '2026년 1기 부가가치세', amt: 554000, add: 0, due: d(10), accts: [{ bank: '데모은행', no: '000-000' }] }, msg: '[더바른 세무회계] 한빛상사 대표님\n\n납부하실 세금 안내드립니다.\n{링크}' },
