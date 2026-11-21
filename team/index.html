@@ -546,6 +546,13 @@ body[data-cur="calc"] .wrap{padding-bottom:0}
   <!-- 홈(2026-11-21): 오늘 볼 것만 — 내 업무 요약·급한 업무 3건, 다가오는 일정 3건, 아래 탭에 없는 화면 바로가기 -->
   <div id="homeView">
     <p class="home-who"><b id="today"></b> · <span id="title">팀 대시보드</span></p>
+    <!-- 바로가기 4칸은 홈 맨 위(2026-11-21 대표님 요청 — 처음엔 맨 아래였음) -->
+    <nav class="tiles" aria-label="바로가기">
+      <button type="button" class="tile" data-view="proj"><span class="ic teal"><svg class="i"><use href="#i-brief"/></svg></span><b>프로젝트</b><small id="hPj">건별 수임 용역</small></button>
+      <button type="button" class="tile" data-view="memo"><span class="ic orange"><svg class="i"><use href="#i-note"/></svg></span><b>메모</b><small><span id="sMemo">–</span>개</small></button>
+      <button type="button" class="tile" data-view="leave"><span class="ic green"><svg class="i"><use href="#i-cal"/></svg></span><b>휴가</b><small id="hLv">신청·내역</small></button>
+      <button type="button" class="tile" data-view="calc"><span class="ic teal"><svg class="i"><use href="#i-calc"/></svg></span><b>세무 계산기</b><small>세금 계산</small></button>
+    </nav>
     <section class="card" aria-labelledby="hHomeTasks">
       <div class="card-head"><h2 id="hHomeTasks">내 업무</h2><div class="right"><button type="button" class="more-link" data-view="work">전체 보기<svg class="i"><use href="#i-chev"/></svg></button></div></div>
       <div class="stats" aria-label="업무 요약">
@@ -559,12 +566,6 @@ body[data-cur="calc"] .wrap{padding-bottom:0}
       <div class="card-head"><h2 id="hHomeEv">다가오는 일정 <span class="count" id="sEv"></span></h2><div class="right"><button type="button" class="more-link" data-view="cal">캘린더<svg class="i"><use href="#i-chev"/></svg></button></div></div>
       <ul class="home-list" id="homeEvents"></ul>
     </section>
-    <nav class="tiles" aria-label="바로가기">
-      <button type="button" class="tile" data-view="proj"><span class="ic teal"><svg class="i"><use href="#i-brief"/></svg></span><b>프로젝트</b><small id="hPj">건별 수임 용역</small></button>
-      <button type="button" class="tile" data-view="memo"><span class="ic orange"><svg class="i"><use href="#i-note"/></svg></span><b>메모</b><small><span id="sMemo">–</span>개</small></button>
-      <button type="button" class="tile" data-view="leave"><span class="ic green"><svg class="i"><use href="#i-cal"/></svg></span><b>휴가</b><small id="hLv">신청·내역</small></button>
-      <button type="button" class="tile" data-view="calc"><span class="ic teal"><svg class="i"><use href="#i-calc"/></svg></span><b>세무 계산기</b><small>세금 계산</small></button>
-    </nav>
   </div>
 
   <!-- 전체(2026-11-21): 아래 탭에 없는 화면은 모두 여기 목록에. 새 기능을 붙일 때는 여기에 한 줄 + 화면(div) 하나 + 아래 VIEW 표 한 줄 -->
